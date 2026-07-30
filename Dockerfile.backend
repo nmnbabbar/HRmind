@@ -1,0 +1,85 @@
+# =============================================================================
+# Dockerfile.backend — Multi-stage build with uv
+#
+# Stage 1 (builder): Install Python deps via uv, download spaCy model
+# Stage 2 (runtime): Copy venv + install system deps (Tesseract, Poppler)
+#
+# Layer order optimised for cache hits:
+#   pyproject.toml (rarely changes) → deps install (slow, cached)
+#   → source code (frequently changes, cheap copy)
+# =============================================================================
+
+# ── Stage 1: Dependency builder ───────────────────────────────────────────────
+FROM ghcr.io/astral-sh/uv:python3.11-slim AS builder
+
+WORKDIR /app
+
+# Pre-compile bytecode for faster startup in runtime
+ENV UV_COMPILE_BYTECODE=1
+# Copy mode: copy files into the venv instead of symlinking (portable across stages)
+ENV UV_LINK_MODE=copy
+
+# Copy ONLY dependency manifest first.
+# This layer is cached until pyproject.toml changes — dep installs are expensive.
+COPY pyproject.toml ./
+
+# Install all runtime dependencies into .venv (no project source yet, no dev deps)
+# If uv.lock exists it will be used for reproducibility; otherwise resolves fresh.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project
+
+# Download spaCy model into the venv so it's copied to the runtime stage.
+# en_core_web_sm (~12MB) used for entity extraction in memory/entity_store.py
+RUN --mount=type=cache,target=/root/.cache \
+    uv run python -m spacy download en_core_web_sm
+
+
+# ── Stage 2: Runtime image ────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+# Install system dependencies in a single RUN to minimise layers.
+# - tesseract-ocr + tesseract-ocr-eng: OCR engine for DocParser agent
+# - poppler-utils: pdf2image backend (PDF → PIL images)
+# - libmagic1: python-magic file type detection (magic bytes, not extension)
+# - curl: used by HEALTHCHECK
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        poppler-utils \
+        libmagic1 \
+        curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the built virtual environment from the builder stage.
+# Includes all Python packages AND the spaCy model data.
+COPY --from=builder /app/.venv /app/.venv
+
+# Activate venv by prepending its bin to PATH
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Create required runtime directories
+RUN mkdir -p /app/uploads /app/data/hr_documents
+
+# Copy application source LAST — most frequently changed layer.
+# Changing source code only invalidates this layer, not the heavy dep layers above.
+COPY backend/ ./backend/
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+# Single worker — ChromaDB HTTP client is safe with multiple requests,
+# but a single Uvicorn worker avoids any shared-state footguns in Phase 1-5.
+# Increase workers after full async validation in Phase 8.
+CMD ["uvicorn", "backend.api.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "1", \
+     "--log-config", "/dev/null"]

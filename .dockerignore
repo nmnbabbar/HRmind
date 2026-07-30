@@ -1,0 +1,46 @@
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments — never copy into image (uv creates .venv inside container)
+.venv/
+venv/
+env/
+
+# uv cache
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Local env — never bake secrets into image
+.env
+
+# Test artifacts
+htmlcov/
+.coverage
+*.xml
+
+# Docs
+*.md
+docs/
+
+# Data — mounted as volumes, not copied
+data/chroma_db/
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,41 @@
+# =============================================================================
+# Dockerfile.frontend — Streamlit UI (multi-stage, uv)
+# =============================================================================
+
+FROM ghcr.io/astral-sh/uv:python3.11-slim AS builder
+
+WORKDIR /app
+
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+# Use the frontend-specific pyproject.toml (no heavy backend deps)
+COPY frontend/pyproject.toml ./pyproject.toml
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project
+
+
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Copy frontend source last (most frequently changed)
+COPY frontend/ ./frontend/
+
+EXPOSE 8501
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "frontend/app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.port=8501", \
+     "--server.headless=true", \
+     "--browser.gatherUsageStats=false"]

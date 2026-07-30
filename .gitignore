@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Environment
+.env
+
+# Data
+chroma_data/
+*.sqlite
+data/*.sqlite
+
+# Artifacts
+eval_results/
+*.md

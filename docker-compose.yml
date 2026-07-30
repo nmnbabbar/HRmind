@@ -1,0 +1,80 @@
+# =============================================================================
+# docker-compose.yml — HrMind full stack
+#
+# Services:
+#   chromadb  — vector store (HTTP server mode, avoids file-locking)
+#   backend   — FastAPI multi-agent orchestration API
+#   frontend  — Streamlit UI
+#
+# Startup order: chromadb → backend (health-gated) → frontend
+# =============================================================================
+
+services:
+
+  # ── ChromaDB — Vector store (HTTP server mode) ──────────────────────────────
+  chromadb:
+    image: chromadb/chroma:0.6.0
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      ALLOW_RESET: "true"
+      ANONYMIZED_TELEMETRY: "false"
+    ports:
+      - "8001:8000"           # Expose on host:8001 to avoid clash with backend:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  # ── Backend — FastAPI + LangGraph orchestration ──────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override host to use docker-compose service name (not localhost)
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    volumes:
+      # HR documents — read-only; never modified by the application
+      - ./data/hr_documents:/app/data/hr_documents:ro
+      # SQLite database — read-write for SQL agent seeding
+      - ./data:/app/data
+      # Uploaded files — writable, ephemeral (TTL cleanup in Phase 8)
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # ── Frontend — Streamlit UI ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: "http://backend:8000"
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  chroma_data:          # Persisted ChromaDB index across restarts
+  uploads:              # Temporary file uploads (cleaned by TTL task in Phase 8)
