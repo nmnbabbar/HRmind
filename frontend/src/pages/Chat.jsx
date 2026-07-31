@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, User, Send, Settings, History, PlusCircle, LogOut } from 'lucide-react';
+import { Bot, User, Send, Settings, History, PlusCircle, LogOut, Paperclip, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Chat() {
@@ -8,27 +8,128 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [uploadedFilePath, setUploadedFilePath] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  
   const endOfMessagesRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = (e) => {
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      setUploadedFilePath(data.file_path);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to upload file.');
+    } finally {
+      setUploading(false);
+      e.target.value = null; // reset input
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && !uploadedFilePath) return;
     
-    // Add user message
-    setMessages(prev => [...prev, { role: 'user', content: input }]);
-    const currentInput = input;
+    const currentInput = input || (uploadedFilePath ? 'Please analyze this document.' : '');
+    setMessages(prev => [...prev, { 
+      role: 'user', 
+      content: currentInput,
+      hasAttachment: !!uploadedFilePath 
+    }]);
+    
     setInput('');
     setIsTyping(true);
+    const pathToSend = uploadedFilePath;
+    setUploadedFilePath(null); // clear for next message
 
-    // Mock SSE response delay for Phase 7
-    setTimeout(() => {
+    // Initialize assistant response
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          query: currentInput, 
+          session_id: sessionId,
+          uploaded_file_path: pathToSend
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
       setIsTyping(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: `(Mock response to: "${currentInput}")\n\nWhen we connect the backend in Phase 6, this will stream live from the RAG and SQL agents!` }]);
-    }, 1500);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.replace('data: ', '').trim();
+            if (dataStr === '[DONE]') break;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.token) {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMessage = newMessages[newMessages.length - 1];
+                  lastMessage.content += data.token;
+                  return newMessages;
+                });
+              } else if (data.error) {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMessage = newMessages[newMessages.length - 1];
+                  lastMessage.content += `\n\n[Error: ${data.error}]`;
+                  return newMessages;
+                });
+              }
+            } catch (err) {
+              console.error('Error parsing SSE JSON:', err);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Fetch error:', error);
+      setIsTyping(false);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        lastMessage.content += '\n\n[Failed to connect to the server. Please try again.]';
+        return newMessages;
+      });
+    }
   };
 
   return (
@@ -119,16 +220,49 @@ export default function Chat() {
 
         {/* Input Area */}
         <div style={{ padding: '24px', background: 'transparent' }}>
-          <form onSubmit={handleSubmit} style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+          
+          {uploadedFilePath && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 8px auto', padding: '8px 16px', background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
+                <Paperclip size={14} color="var(--primary)" />
+                <span style={{ color: 'var(--text-main)' }}>{uploadedFilePath.split('/').pop().split('\\').pop()}</span>
+              </div>
+              <button onClick={() => setUploadedFilePath(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', display: 'flex', gap: '8px' }}>
+            
             <input 
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Ask HrMind a question..."
-              style={{ width: '100%', padding: '16px 64px 16px 24px', borderRadius: '24px', border: '1px solid var(--border)', background: 'var(--bg-panel)', backdropFilter: 'blur(12px)', color: 'white', fontSize: '1rem', outline: 'none', boxShadow: 'var(--shadow-lg)' }}
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              style={{ display: 'none' }} 
+              accept=".pdf,.docx" 
             />
-            <button type="submit" disabled={!input.trim() || isTyping} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', width: '40px', borderRadius: '50%', background: input.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'not-allowed', color: 'white', transition: 'all 0.2s' }}>
-              <Send size={18} style={{ transform: 'translateX(1px) translateY(1px)' }} />
+            
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={uploading || isTyping}
+              style={{ width: '56px', borderRadius: '24px', background: 'var(--bg-panel)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (uploading || isTyping) ? 'not-allowed' : 'pointer', color: 'var(--text-muted)' }}
+            >
+              {uploading ? <div className="dot" style={{ animation: 'blink 1s infinite' }}>•</div> : <Paperclip size={20} />}
             </button>
+
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input 
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Ask HrMind a question..."
+                style={{ width: '100%', padding: '16px 64px 16px 24px', borderRadius: '24px', border: '1px solid var(--border)', background: 'var(--bg-panel)', backdropFilter: 'blur(12px)', color: 'white', fontSize: '1rem', outline: 'none', boxShadow: 'var(--shadow-lg)' }}
+              />
+              <button type="submit" disabled={(!input.trim() && !uploadedFilePath) || isTyping} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', width: '40px', borderRadius: '50%', background: (input.trim() || uploadedFilePath) ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (input.trim() || uploadedFilePath) ? 'pointer' : 'not-allowed', color: 'white', transition: 'all 0.2s' }}>
+                <Send size={18} style={{ transform: 'translateX(1px) translateY(1px)' }} />
+              </button>
+            </div>
           </form>
           <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             HrMind uses AI and may generate inaccurate information. Please verify important HR policies.
