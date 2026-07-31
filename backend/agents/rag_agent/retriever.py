@@ -51,20 +51,27 @@ class ChromaVectorRepository(VectorRepository):
 
     def __init__(
         self,
-        client: chromadb.AsyncClientAPI,
+        client: chromadb.ClientAPI, # type hint can just be ClientAPI, we support both
         collection_name: str,
     ) -> None:
         self._client = client
         self._collection_name = collection_name
-        self._collection: chromadb.AsyncCollection | None = None
+        self._collection = None
 
-    async def _get_collection(self) -> chromadb.AsyncCollection:
+    async def _get_collection(self):
         """Lazily fetch the collection (created during ingestion)."""
+        import inspect
+        
+        async def _maybe_await(obj):
+            if inspect.iscoroutine(obj):
+                return await obj
+            return obj
+
         if self._collection is None:
-            self._collection = await self._client.get_or_create_collection(
+            self._collection = await _maybe_await(self._client.get_or_create_collection(
                 name=self._collection_name,
                 metadata={"hnsw:space": "cosine"},
-            )
+            ))
         return self._collection
 
     async def similarity_search(
@@ -89,13 +96,19 @@ class ChromaVectorRepository(VectorRepository):
             Metadata includes: source, page, chunk_index, file_hash, doc_type.
             An extra key "distance" is added (lower = more similar for cosine).
         """
+        import inspect
+        async def _maybe_await(obj):
+            if inspect.iscoroutine(obj):
+                return await obj
+            return obj
+
         collection = await self._get_collection()
 
-        results = await collection.query(
+        results = await _maybe_await(collection.query(
             query_embeddings=[query_embedding],
             n_results=min(k, await self.collection_count()),
             include=["documents", "metadatas", "distances"],
-        )
+        ))
 
         docs: list[Document] = []
         if not results["documents"] or not results["documents"][0]:
@@ -135,17 +148,29 @@ class ChromaVectorRepository(VectorRepository):
                 hashlib.md5(t.encode()).hexdigest()[:16] for t in texts
             ]
 
-        await collection.upsert(
+        import inspect
+        async def _maybe_await(obj):
+            if inspect.iscoroutine(obj):
+                return await obj
+            return obj
+
+        await _maybe_await(collection.upsert(
             ids=ids,
             documents=texts,
             embeddings=embeddings,
             metadatas=metadatas,
-        )
+        ))
 
     async def collection_count(self) -> int:
         """Return total number of documents in the collection."""
+        import inspect
+        async def _maybe_await(obj):
+            if inspect.iscoroutine(obj):
+                return await obj
+            return obj
+            
         collection = await self._get_collection()
-        return await collection.count()
+        return await _maybe_await(collection.count())
 
     async def get_all_chunks(self) -> list[Document]:
         """
@@ -154,15 +179,21 @@ class ChromaVectorRepository(VectorRepository):
         Warning: loads everything into memory. For HR docs this is fine
         (< 5000 chunks typically), but would need pagination for very large corpora.
         """
+        import inspect
+        async def _maybe_await(obj):
+            if inspect.iscoroutine(obj):
+                return await obj
+            return obj
+            
         collection = await self._get_collection()
-        count = await collection.count()
+        count = await _maybe_await(collection.count())
         if count == 0:
             return []
 
-        results = await collection.get(
+        results = await _maybe_await(collection.get(
             limit=count,
             include=["documents", "metadatas"],
-        )
+        ))
 
         docs: list[Document] = []
         for doc_id, text, meta in zip(
@@ -295,10 +326,9 @@ async def create_chroma_repository(
     Resolves defaults from get_settings() if not provided.
     """
     settings = get_settings()
-    client = await chromadb.AsyncHttpClient(
-        host=host or settings.chroma_host,
-        port=port or settings.chroma_port,
-    )
+    from backend.utils.chroma_client import create_async_chroma_client
+    client = await create_async_chroma_client(settings)
+    
     return ChromaVectorRepository(
         client=client,
         collection_name=collection_name or settings.chroma_collection_name,

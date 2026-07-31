@@ -95,8 +95,9 @@ async def create_async_chroma_client(
         import os
         persist_dir = os.path.abspath(s.chroma_persist_dir)
         logger.info("ChromaDB: async local EphemeralClient (wrapped) at %s", persist_dir)
-        # AsyncEphemeralClient is the async-compatible local client
-        return await chromadb.AsyncEphemeralClient()
+        # We return the synchronous PersistentClient. 
+        # The ChromaVectorRepository uses _maybe_await to handle both sync and async clients gracefully.
+        return chromadb.PersistentClient(path=persist_dir)
     else:
         logger.info(
             "ChromaDB: AsyncHttpClient at %s:%s", s.chroma_host, s.chroma_port

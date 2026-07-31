@@ -49,6 +49,10 @@ async def lifespan(app: FastAPI):
     # Start the background cleanup task
     cleanup_task = asyncio.create_task(cleanup_old_uploads_task())
     
+    # Initialize AgentFactory heavy dependencies (RAG embeddings, ChromaDB, BM25)
+    from backend.orchestration.factory import AgentFactory
+    await AgentFactory.initialize()
+    
     yield
     
     cleanup_task.cancel()

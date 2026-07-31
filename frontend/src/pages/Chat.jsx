@@ -54,6 +54,7 @@ export default function Chat() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isTyping) return;
     if (!input.trim() && !uploadedFilePath) return;
     
     const currentInput = input || (uploadedFilePath ? 'Please analyze this document.' : '');
@@ -110,15 +111,21 @@ export default function Chat() {
               if (data.token) {
                 setMessages(prev => {
                   const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  lastMessage.content += data.token;
+                  const lastIndex = newMessages.length - 1;
+                  newMessages[lastIndex] = {
+                    ...newMessages[lastIndex],
+                    content: newMessages[lastIndex].content + data.token
+                  };
                   return newMessages;
                 });
               } else if (data.error) {
                 setMessages(prev => {
                   const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  lastMessage.content += `\n\n[Error: ${data.error}]`;
+                  const lastIndex = newMessages.length - 1;
+                  newMessages[lastIndex] = {
+                    ...newMessages[lastIndex],
+                    content: newMessages[lastIndex].content + `\n\n[Error: ${data.error}]`
+                  };
                   return newMessages;
                 });
               }
@@ -133,8 +140,11 @@ export default function Chat() {
       setIsTyping(false);
       setMessages(prev => {
         const newMessages = [...prev];
-        const lastMessage = newMessages[newMessages.length - 1];
-        lastMessage.content += '\n\n[Failed to connect to the server. Please try again.]';
+        const lastIndex = newMessages.length - 1;
+        newMessages[lastIndex] = {
+          ...newMessages[lastIndex],
+          content: newMessages[lastIndex].content + '\n\n[Failed to connect to the server. Please try again.]'
+        };
         return newMessages;
       });
     }
