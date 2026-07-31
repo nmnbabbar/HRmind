@@ -30,7 +30,13 @@ def planner_node(state: GraphState) -> GraphState:
     Planner Node: Analyzes the state and determines the execution plan.
     Returns a dict with the `plan` key containing the serialized PlannerOutput.
     """
-    llm = ChatOpenAI(model=get_settings().planner_model, temperature=0).with_structured_output(PlannerOutput)
+    settings = get_settings()
+    llm = ChatOpenAI(
+        model=settings.planner_model, 
+        temperature=0,
+        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key
+    ).with_structured_output(PlannerOutput)
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", PLANNER_SYSTEM_PROMPT),

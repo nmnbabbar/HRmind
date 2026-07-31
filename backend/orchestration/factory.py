@@ -25,7 +25,12 @@ class AgentFactory:
             return cls._agents[agent_name]
             
         settings = get_settings()
-        llm = ChatOpenAI(model=settings.agent_model, temperature=0)
+        llm = ChatOpenAI(
+            model=settings.agent_model, 
+            temperature=0,
+            base_url=settings.llm_base_url,
+            api_key=settings.llm_api_key
+        )
         
         if agent_name == "sql":
             agent = SQLAgent(llm=llm)

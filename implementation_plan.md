@@ -1077,9 +1077,14 @@ cd frontend && npm run dev
 
 ---
 
-## Phase 8: E2E Tests, Upload Cleanup, Polish ✅
+## Phase 8: E2E Tests, Upload Cleanup, Polish (IN PROGRESS)
 
 **Goal**: Full conversation flow tests, scheduled upload cleanup, final Docker polish.
+
+### Status
+- **SQLite Data Seeded**: Mock HR data (50 employees) generated. ✅
+- **Models Loaded**: LLMs properly dynamically load keys and base URLs from `.env`. ✅
+- **Next Up**: Full stack test validation (Docker/E2E).
 
 ### E2E Test Scenarios
 1. **RAG only**: "What is the maternity leave policy?" → single agent
@@ -1112,10 +1117,10 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 
 | Layer | Technology | Version |
 |---|---|---|
-| **LLM** | `ChatOpenAI` — gpt-4o-mini for agents, gpt-4o for Planner/Combiner | — |
+| **LLM** | `ChatOpenAI` — Deepseek via NVIDIA NIM for all | — |
 | **Orchestration** | LangGraph | `>=0.2.0,<0.3` |
 | **LLM Framework** | LangChain | `>=1.0.0,<2.0` |
-| **Embeddings** | `BAAI/bge-small-en-v1.5` (33M params, CPU-fast) | SentenceTransformers >=3.0 |
+| **Embeddings** | `BAAI/bge-large-en-v1.5` | SentenceTransformers >=3.0 |
 | **Sparse Retrieval** | BM25Okapi | rank_bm25 >=0.2.2 |
 | **Vector Store** | ChromaDB **HTTP client mode** (Docker service) | >=0.6.0 |
 | **RAG Evals** | RAGAS | >=0.2.0 |
@@ -1125,7 +1130,7 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 | **File Safety** | `python-magic` (magic bytes, not extension) | >=0.4.27 |
 | **Backend** | FastAPI + Uvicorn (single worker — ChromaDB safe) | >=0.115.0 |
 | **Streaming** | SSE via `StreamingResponse` + `astream_events` | — |
-| **Frontend** | Streamlit + httpx SSE consumer | >=1.40.0 |
+| **Frontend** | React (Vite) + vanilla CSS | — |
 | **Async SQL** | aiosqlite | >=0.20.0 |
 | **Memory** | LangGraph `MemorySaver` (MemoryCheckpointer) | built-in |
 | **Logging** | structlog | >=24.0.0 |
@@ -1135,13 +1140,7 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-> [!IMPORTANT]
-> **OpenAI API Key**: Please share your `OPENAI_API_KEY` — I'll add it to `.env.example`. You fill in the value before running docker compose.
-
-> [!NOTE]
-> **Model split is proposed as**: `gpt-4o-mini` for all three agents (speed + cost), `gpt-4o` for Planner and Combiner (complex reasoning). Confirm or override.
-
-> [!NOTE]
-> **SQLite seed data**: I'll generate ~50 realistic employees with leave, payroll, and performance records. Confirm if you want specific departments/structure.
+- **Models**: Configured all agents and orchestrators to use the models defined in `.env` (Deepseek via NVIDIA NIM).
+- **SQLite Seed Data**: Generated 50 realistic employees covering Engineering, Sales, Support, HR, Marketing, and Finance.

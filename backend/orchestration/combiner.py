@@ -45,7 +45,13 @@ def combiner_node(state: GraphState) -> GraphState:
         else:
             formatted_results += f"- Error processing request: {res.error}\n"
 
-    llm = ChatOpenAI(model=get_settings().combiner_model, temperature=0.2)
+    settings = get_settings()
+    llm = ChatOpenAI(
+        model=settings.combiner_model, 
+        temperature=0.2,
+        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key
+    )
     prompt = ChatPromptTemplate.from_messages([
         ("system", COMBINER_SYSTEM_PROMPT),
         ("user", "Please provide the final response.")

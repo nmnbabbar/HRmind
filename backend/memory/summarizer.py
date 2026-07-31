@@ -56,7 +56,15 @@ class RollingSummarizer:
 
     Usage
     -----
-        summarizer = RollingSummarizer(llm=ChatOpenAI(model="gpt-4o-mini"))
+        from backend.config import get_settings
+        settings = get_settings()
+        summarizer = RollingSummarizer(
+            llm=ChatOpenAI(
+                model=settings.agent_model,
+                base_url=settings.llm_base_url,
+                api_key=settings.llm_api_key
+            )
+        )
         summarizer.increment()   # call after each user turn
 
         if summarizer.should_summarize():
