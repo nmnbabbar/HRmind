@@ -5,15 +5,14 @@ from fastapi import APIRouter, Depends, Body
 from fastapi.responses import StreamingResponse
 from backend.api.dependencies import get_graph
 from backend.state import make_initial_state
+from backend.api.schemas.chat import ChatRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
 @router.post("/stream")
 async def chat_stream(
-    query: str = Body(...),
-    session_id: str = Body(...),
-    uploaded_file_path: str | None = Body(None),
+    request: ChatRequest = Body(...),
     graph = Depends(get_graph)
 ):
     """
@@ -22,11 +21,11 @@ async def chat_stream(
     """
     
     # We construct the input state for this turn
-    state = make_initial_state(query=query, session_id=session_id)
-    if uploaded_file_path:
-        state["uploaded_file_path"] = uploaded_file_path
+    state = make_initial_state(query=request.query, session_id=request.session_id)
+    if request.uploaded_file_path:
+        state["uploaded_file_path"] = request.uploaded_file_path
         
-    config = {"configurable": {"thread_id": session_id}}
+    config = {"configurable": {"thread_id": request.session_id}}
     
     async def event_generator() -> AsyncGenerator[str, None]:
         try:

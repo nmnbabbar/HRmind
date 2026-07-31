@@ -21,6 +21,11 @@ async def upload_file(file: UploadFile = File(...)):
     if ext not in [".pdf", ".docx"]:
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed.")
         
+    # Check file size before saving to disk (prevent disk DOS)
+    max_bytes = settings.max_file_size_mb * 1024 * 1024
+    if file.size and file.size > max_bytes:
+        raise HTTPException(status_code=400, detail=f"File exceeds maximum size of {settings.max_file_size_mb}MB.")
+        
     file_id = str(uuid.uuid4())
     filename = f"{file_id}{ext}"
     file_path = upload_dir / filename
@@ -28,11 +33,6 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
-        file_size = os.path.getsize(file_path)
-        if file_size > settings.max_file_size_mb * 1024 * 1024:
-            file_path.unlink()
-            raise HTTPException(status_code=400, detail=f"File exceeds maximum size of {settings.max_file_size_mb}MB.")
             
         logger.info(f"File uploaded successfully: {file_path}")
         return UploadResponse(
