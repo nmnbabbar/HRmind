@@ -1,19 +1,38 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bot, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Auth() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLogin = location.pathname === '/login';
   
+  const { login, register } = useAuth();
+  
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock authentication for Phase 7
-    navigate('/chat');
+    setError('');
+    setLoading(true);
+    
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(name, email, password);
+      }
+      navigate('/chat');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,10 +61,16 @@ export default function Auth() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
             
+            {error && (
+              <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.5)', borderRadius: '8px', color: '#ef4444', fontSize: '0.875rem', marginBottom: '16px' }}>
+                {error}
+              </div>
+            )}
+
             {!isLogin && (
               <div className="input-group">
                 <label>Full Name</label>
-                <input type="text" placeholder="Jane Doe" required />
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" required />
               </div>
             )}
             
@@ -62,8 +87,8 @@ export default function Auth() {
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px', padding: '14px' }}>
-              {isLogin ? 'Sign In' : 'Create Account'}
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', marginTop: '16px', padding: '14px', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 

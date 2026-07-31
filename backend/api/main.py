@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
 from backend.utils.log import configure_logging, get_logger
-from backend.api.routes import chat, upload, eval, health, sessions
+from backend.api.routes import auth, chat, upload, eval, health, sessions
+
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -71,6 +72,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router)
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(upload.router)

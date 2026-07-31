@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from backend.api.dependencies import get_graph
 from backend.state import make_initial_state
 from backend.api.schemas.chat import ChatRequest
+from backend.api.auth_utils import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -13,7 +14,8 @@ router = APIRouter(prefix="/api/chat", tags=["Chat"])
 @router.post("/stream")
 async def chat_stream(
     request: ChatRequest = Body(...),
-    graph = Depends(get_graph)
+    graph = Depends(get_graph),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     POST stream endpoint for chatting.

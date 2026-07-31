@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bot, User, Send, Settings, History, PlusCircle, LogOut, Paperclip, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Chat() {
+  const { token, user, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello! I am your AI HR Assistant. You can ask me about policies, employee data, or upload contracts for review.' }
   ]);
@@ -31,6 +35,9 @@ export default function Chat() {
     try {
       const res = await fetch('http://localhost:8000/api/upload', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
       if (!res.ok) throw new Error('Upload failed');
@@ -69,6 +76,7 @@ export default function Chat() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
           query: currentInput, 
@@ -132,6 +140,11 @@ export default function Chat() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-dark)' }}>
       
@@ -166,9 +179,9 @@ export default function Chat() {
           <div style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             <Settings size={18} /> Settings
           </div>
-          <Link to="/" style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
+          <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             <LogOut size={18} /> Log out
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -177,8 +190,11 @@ export default function Chat() {
         <div className="bg-blobs" style={{ position: 'absolute', opacity: 0.5 }}></div>
 
         {/* Header */}
-        <header style={{ height: '64px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 24px', background: 'rgba(10, 11, 14, 0.8)', backdropFilter: 'blur(12px)' }}>
+        <header style={{ height: '64px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', background: 'rgba(10, 11, 14, 0.8)', backdropFilter: 'blur(12px)' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: '500' }}>Current Session</h2>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Logged in as <span style={{ color: 'white', fontWeight: '500' }}>{user?.name || 'User'}</span>
+          </div>
         </header>
 
         {/* Messages */}

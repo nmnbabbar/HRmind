@@ -8,6 +8,14 @@ settings = get_settings()
 CREATE_TABLES = """
 DROP TABLE IF EXISTS leave_balances;
 DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
+);
 
 CREATE TABLE employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,6 +67,7 @@ async def seed():
         # Clear existing
         await db.execute("DELETE FROM leave_balances")
         await db.execute("DELETE FROM employees")
+        await db.execute("DELETE FROM users")
         
         # Insert employees
         cursor = await db.cursor()

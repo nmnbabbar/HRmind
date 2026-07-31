@@ -1111,6 +1111,21 @@ docker compose up --build        # full stack
 docker compose exec backend pytest tests/ -v --tb=short  # all tests
 ```
 
+## Phase 9: Authentication & Authorization ✅
+
+**Goal**: Implement secure user registration, login, and JWT-based session management to protect the chat and upload endpoints.
+
+### Architecture
+- **Backend Auth**: FastAPI OAuth2 with Password (and hashing via `passlib[bcrypt]`), JWT issuance via `python-jose[cryptography]`.
+- **Database**: New `users` table in the SQLite database to store `email` and `password_hash`.
+- **Frontend State**: React Context (`AuthContext`) to manage user session and JWT storage in `localStorage`.
+- **Protected Routes**: React Router will redirect unauthenticated users away from `/chat` to `/login`.
+- **API Protection**: The `/api/chat/stream` and `/api/upload` endpoints will require a valid `Bearer` token.
+
+### Proposed Endpoints
+- `POST /api/auth/register`: Create a new user account.
+- `POST /api/auth/login`: Authenticate and receive a JWT token.
+
 ---
 
 ## Technology Stack (Final)
@@ -1137,6 +1152,7 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 | **Package Mgr** | `uv` | latest |
 | **Containers** | Docker multi-stage + docker-compose | — |
 | **Testing** | pytest + pytest-asyncio + httpx | — |
+| **Auth** (Phase 9) | passlib[bcrypt] + python-jose | latest |
 
 ---
 
@@ -1144,3 +1160,5 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 
 - **Models**: Configured all agents and orchestrators to use the models defined in `.env` (Deepseek via NVIDIA NIM).
 - **SQLite Seed Data**: Generated 50 realistic employees covering Engineering, Sales, Support, HR, Marketing, and Finance.
+- **Database Relationship**: `users` table is independent of `employees` table. Users act as HR Administrators.
+- **Auth State Management**: Used native React Context `AuthContext` instead of Zustand to minimize external dependencies.
