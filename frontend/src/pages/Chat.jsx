@@ -1,0 +1,149 @@
+import { useState, useRef, useEffect } from 'react';
+import { Bot, User, Send, Settings, History, PlusCircle, LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+export default function Chat() {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hello! I am your AI HR Assistant. You can ask me about policies, employee data, or upload contracts for review.' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const endOfMessagesRef = useRef(null);
+
+  useEffect(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    
+    // Add user message
+    setMessages(prev => [...prev, { role: 'user', content: input }]);
+    const currentInput = input;
+    setInput('');
+    setIsTyping(true);
+
+    // Mock SSE response delay for Phase 7
+    setTimeout(() => {
+      setIsTyping(false);
+      setMessages(prev => [...prev, { role: 'assistant', content: `(Mock response to: "${currentInput}")\n\nWhen we connect the backend in Phase 6, this will stream live from the RAG and SQL agents!` }]);
+    }, 1500);
+  };
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-dark)' }}>
+      
+      {/* Sidebar */}
+      <aside style={{ width: '280px', background: 'var(--bg-darker)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '16px' }}>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', fontSize: '1.25rem', fontWeight: '700', marginBottom: '24px' }}>
+          <Bot size={24} color="var(--primary)" />
+          <span>HrMind</span>
+        </div>
+
+        <button className="btn btn-outline" style={{ display: 'flex', justifyContent: 'flex-start', background: 'var(--bg-panel)', padding: '12px' }}>
+          <PlusCircle size={18} /> New Chat
+        </button>
+
+        <div style={{ marginTop: '24px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '12px', padding: '0 12px' }}>Recent Chats</div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {['Leave Policies', 'Engineering Salary Data', 'Onboarding Process'].map((chat, i) => (
+              <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}
+                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
+                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <History size={16} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            <Settings size={18} /> Settings
+          </div>
+          <Link to="/" style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem', textDecoration: 'none' }}>
+            <LogOut size={18} /> Log out
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Chat Area */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <div className="bg-blobs" style={{ position: 'absolute', opacity: 0.5 }}></div>
+
+        {/* Header */}
+        <header style={{ height: '64px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 24px', background: 'rgba(10, 11, 14, 0.8)', backdropFilter: 'blur(12px)' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: '500' }}>Current Session</h2>
+        </header>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {messages.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
+              
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            background: m.role === 'user' ? 'var(--primary)' : 'var(--bg-panel)',
+                            boxShadow: m.role === 'user' ? '0 0 15px var(--primary-glow)' : 'none',
+                            border: m.role === 'assistant' ? '1px solid var(--border)' : 'none' }}>
+                {m.role === 'user' ? <User size={20} color="white" /> : <Bot size={20} color="var(--primary)" />}
+              </div>
+              
+              <div style={{ background: m.role === 'user' ? 'var(--bg-panel)' : 'transparent',
+                            padding: m.role === 'user' ? '12px 16px' : '8px 0',
+                            borderRadius: '16px', borderTopRightRadius: m.role === 'user' ? 0 : '16px',
+                            borderTopLeftRadius: m.role === 'assistant' ? 0 : '16px',
+                            color: 'var(--text-main)', fontSize: '1rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          
+          {isTyping && (
+            <div style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border)' }}>
+                <Bot size={20} color="var(--primary)" />
+              </div>
+              <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span className="dot" style={{ animation: 'blink 1.4s infinite both' }}>•</span>
+                <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.2s' }}>•</span>
+                <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.4s' }}>•</span>
+              </div>
+            </div>
+          )}
+          <div ref={endOfMessagesRef} />
+        </div>
+
+        {/* Input Area */}
+        <div style={{ padding: '24px', background: 'transparent' }}>
+          <form onSubmit={handleSubmit} style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+            <input 
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Ask HrMind a question..."
+              style={{ width: '100%', padding: '16px 64px 16px 24px', borderRadius: '24px', border: '1px solid var(--border)', background: 'var(--bg-panel)', backdropFilter: 'blur(12px)', color: 'white', fontSize: '1rem', outline: 'none', boxShadow: 'var(--shadow-lg)' }}
+            />
+            <button type="submit" disabled={!input.trim() || isTyping} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', width: '40px', borderRadius: '50%', background: input.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'not-allowed', color: 'white', transition: 'all 0.2s' }}>
+              <Send size={18} style={{ transform: 'translateX(1px) translateY(1px)' }} />
+            </button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            HrMind uses AI and may generate inaccurate information. Please verify important HR policies.
+          </div>
+        </div>
+
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes blink {
+          0% { opacity: 0.2; }
+          20% { opacity: 1; }
+          100% { opacity: 0.2; }
+        }
+      `}} />
+    </div>
+  );
+}

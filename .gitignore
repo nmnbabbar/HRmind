@@ -1,17 +1,39 @@
-# Python
+# Python & Virtual Environments
+.venv/
+venv/
 __pycache__/
 *.pyc
-.venv/
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Environment
+# Node / Frontend
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/build/
+
+# Environment & Secrets
 .env
+.env.*
+!.env.example
 
-# Data
+# Data & Databases
 chroma_data/
 *.sqlite
+*.sqlite3
 data/*.sqlite
 
-# Artifacts
+# Local Temp / Scratch / Uploads
+scratch/
+uploads/
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Evaluation / Benchmark artifacts
 eval_results/
-*.md

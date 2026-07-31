@@ -26,9 +26,10 @@ dependencies = [
     "aiosqlite>=0.20.0",
     # SQL safety — statement-type parser (no regex)
     "sqlglot>=23.0.0",
-    # OCR
+    # OCR / PDF text extraction
     "pytesseract>=0.3.13",
     "pdf2image>=1.17.0",
+    "pdfplumber>=0.11.0",
     # File safety — magic bytes (not extension)
     # python-magic-bin bundles libmagic.dll on Windows; the plain package needs a system lib
     "python-magic>=0.4.27; sys_platform != 'win32'",

@@ -5,6 +5,8 @@ Tests for the SQLAgent and SQLValidator.
 """
 
 import pytest
+import aiosqlite
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from backend.agents.sql_agent.sql_validator import validate_and_format_sql, SQLValidationError
@@ -93,9 +95,6 @@ async def test_sql_agent_llm_hallucinates_markdown(mock_llm_sql, sample_sql_stat
     agent = SQLAgent(llm=mock_llm_sql)
     
     # Use a real in-memory DB instead of mocking aiosqlite context managers
-    import aiosqlite
-    import pytest
-    from unittest.mock import patch
     
     async with aiosqlite.connect(":memory:") as db:
         await db.execute("CREATE TABLE departments (id INTEGER PRIMARY KEY, name TEXT)")
@@ -104,7 +103,6 @@ async def test_sql_agent_llm_hallucinates_markdown(mock_llm_sql, sample_sql_stat
         
         with patch("backend.agents.sql_agent.sql_agent.aiosqlite.connect") as mock_connect:
             # We mock the connect function to yield our in-memory DB
-            from contextlib import asynccontextmanager
             @asynccontextmanager
             async def get_db(*args, **kwargs):
                 yield db
@@ -132,9 +130,6 @@ async def test_sql_agent_validation_failure(mock_llm_sql, sample_sql_state):
 @pytest.mark.asyncio
 async def test_sql_agent_success_formatting(mock_llm_sql, sample_sql_state):
     agent = SQLAgent(llm=mock_llm_sql)
-    
-    import aiosqlite
-    from contextlib import asynccontextmanager
     
     async with aiosqlite.connect(":memory:") as db:
         await db.execute("CREATE TABLE employees (first_name TEXT, last_name TEXT)")

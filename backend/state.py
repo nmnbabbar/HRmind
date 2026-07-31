@@ -183,9 +183,13 @@ class GraphState(TypedDict, total=False):
 
     # ── File handling (DocParser) ──────────────────────────────────────────
     uploaded_file_path: str | None       # absolute path to uploaded file in /uploads
+    parsed_document: dict | None         # DocParser result — persists across turns via MemorySaver
+                                         # Cleared only when a NEW file is uploaded.
+                                         # Planner checks this to skip re-invoking DocParser.
 
     # ── Error handling ─────────────────────────────────────────────────────
     error: str | None                    # set if a node fails fatally
+
 
 
 def make_initial_state(query: str, session_id: str) -> GraphState:
@@ -204,5 +208,7 @@ def make_initial_state(query: str, session_id: str) -> GraphState:
         agent_results=[],
         final_answer="",
         uploaded_file_path=None,
+        parsed_document=None,
         error=None,
     )
+
