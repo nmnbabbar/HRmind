@@ -45,8 +45,18 @@ def configure_logging(log_level: str = "INFO") -> None:
     """
     level = getattr(logging, log_level.upper(), logging.INFO)
 
-    # Shared processors applied to every log event
-    shared_processors: list = [
+    # Processors applied to structlog calls
+    structlog_processors: list = [
+        structlog.stdlib.filter_by_level,
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.StackInfoRenderer(),
+    ]
+
+    # Pre-chain for stdlib logging records (exclude filter_by_level because stdlib records receive logger=None)
+    foreign_pre_chain: list = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
@@ -63,18 +73,18 @@ def configure_logging(log_level: str = "INFO") -> None:
 
     structlog.configure(
         processors=[
-            *shared_processors,
+            *structlog_processors,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(level),
+        wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
     # Also configure stdlib logging to go through structlog formatters
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=shared_processors,
+        foreign_pre_chain=foreign_pre_chain,
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,

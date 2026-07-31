@@ -24,6 +24,11 @@ from pydantic import BaseModel, field_validator
 
 # ── Planner output ─────────────────────────────────────────────────────────────
 
+class AgentQueries(BaseModel):
+    rag: str | None = None
+    sql: str | None = None
+    doc_parser: str | None = None
+
 class PlannerOutput(BaseModel):
     """
     Structured output from the Planner node.
@@ -35,30 +40,24 @@ class PlannerOutput(BaseModel):
     -------
     PlannerOutput(
         agents=["doc_parser", "rag"],
-        queries={"doc_parser": "extract notice period", "rag": "notice periods policy"},
+        queries=AgentQueries(doc_parser="extract notice period", rag="notice periods policy"),
         parallel=False,   # doc_parser output feeds into rag → must be sequential
         reasoning="User uploaded a contract and wants policy validation"
     )
     """
 
     agents: list[Literal["rag", "sql", "doc_parser"]]
-    queries: dict[str, str]   # per-agent query rewrite / instruction
+    queries: AgentQueries   # per-agent query rewrite / instruction
     parallel: bool            # True only when agents have no output dependency
     reasoning: str = ""       # stored in metadata, never shown to user
 
-    @field_validator("agents")
-    @classmethod
-    def agents_not_empty(cls, v: list) -> list:
-        if not v:
-            raise ValueError("agents list must contain at least one agent")
-        return v
-
     @field_validator("queries")
     @classmethod
-    def queries_match_agents(cls, v: dict, info: Any) -> dict:
+    def queries_match_agents(cls, v: AgentQueries, info: Any) -> AgentQueries:
         # Every agent must have a corresponding query
         agents = info.data.get("agents", [])
-        missing = [a for a in agents if a not in v]
+        v_dict = v.model_dump(exclude_none=True)
+        missing = [a for a in agents if a not in v_dict]
         if missing:
             raise ValueError(f"Missing queries for agents: {missing}")
         return v

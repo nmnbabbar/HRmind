@@ -50,8 +50,10 @@ async def router_node(state: GraphState) -> GraphState:
             
             # If the plan gave us a rewritten query, use it in this local state copy.
             # E.g., RAG might need a specific policy search instead of the raw user query.
-            if agent_name in plan.queries:
-                current_state["plan"]["queries"][agent_name] = plan.queries[agent_name]
+            agent_query = getattr(plan.queries, agent_name, None)
+            if agent_query:
+                # the state expects a dict here because it was serialized
+                current_state["plan"]["queries"][agent_name] = agent_query
                 
             result = await agent.run(current_state)
             agent_results.append(result.to_dict())

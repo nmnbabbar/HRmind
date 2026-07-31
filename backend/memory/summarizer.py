@@ -34,15 +34,19 @@ from backend.utils.log import get_logger
 logger = get_logger(__name__)
 
 _SYSTEM_PROMPT = """\
-You are a conversation compressor for an HR AI assistant.
+You are a conversation memory compressor for an enterprise HR AI assistant.
 Summarize the conversation below into a single concise paragraph (max 150 words).
 
-Focus on:
-- What the user asked about (policies, employees, documents)
-- What was found or answered
-- Key entities mentioned (names, policy names, dates, departments)
+Focus strictly on:
+- The core intent of the user (e.g., asked about maternity policies, requested salary details)
+- The key facts or answers provided by the assistant
+- Critical HR entities mentioned (names, policy names, specific dates, departments, document names)
 
-Write in third person. Be factual and information-dense. No opinions or filler words.\
+Rules:
+- Write in the third person.
+- Be highly factual and information-dense.
+- Strip out pleasantries, opinions, and filler words.
+- Ensure context for follow-up questions is preserved.\
 """
 
 

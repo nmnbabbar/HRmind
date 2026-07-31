@@ -54,6 +54,8 @@ dependencies = [
     # Auth
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3.0",
+    "email-validator>=2.1.0",
+    "langsmith[claude-agent-sdk]>=0.10.11",
 ]
 
 [project.optional-dependencies]

@@ -35,14 +35,14 @@ async def chat_stream(
             async for event in graph.astream_events(state, config=config, version="v2"):
                 # We specifically look for the Combiner node's LLM chunks
                 if event["event"] == "on_chat_model_stream":
-                    # Filter by node if needed, though typically only planner/combiner use chat model here.
-                    # Planner uses with_structured_output which doesn't stream tokens easily,
-                    # Combiner uses normal invoke, which can stream. Wait, combiner uses `.ainvoke`.
-                    # In LangGraph, `astream_events` works well with `.ainvoke`.
-                    chunk = event["data"]["chunk"].content
-                    if chunk:
-                        # SSE format: data: {"token": "..."}\n\n
-                        yield f"data: {json.dumps({'token': chunk})}\n\n"
+                    # Only stream output if it originated from the combiner node
+                    # This prevents the planner's structured output JSON from leaking to the frontend
+                    node_name = event.get("metadata", {}).get("langgraph_node")
+                    if node_name == "combiner":
+                        chunk = event["data"]["chunk"].content
+                        if isinstance(chunk, str) and chunk:
+                            # SSE format: data: {"token": "..."}\n\n
+                            yield f"data: {json.dumps({'token': chunk})}\n\n"
                         
             yield "data: [DONE]\n\n"
         except Exception as e:

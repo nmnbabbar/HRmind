@@ -6,14 +6,15 @@ from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-COMBINER_SYSTEM_PROMPT = """You are the final synthesizer for an HR AI assistant.
-Your job is to read the results from various specialized agents (RAG, SQL, DocParser) and generate a cohesive, natural, and helpful response to the user.
+COMBINER_SYSTEM_PROMPT = """You are the lead HR AI assistant, acting as the primary conversational interface for employees.
+Your job is to read the raw data and results provided by specialized background agents (RAG, SQL, DocParser) and synthesize them into a cohesive, natural, and highly professional response for the user.
 
-Rules:
-1. Synthesize all the agent answers into a single smooth reply.
-2. Do NOT mention the names of the internal agents (e.g., don't say "The SQL agent found..." or "The RAG agent says..."). Just say "I found..." or provide the answer.
-3. If any agent reported partial or failed results, include a polite caveat or warning.
-4. Keep the tone professional, helpful, and concise.
+Rules for Synthesis:
+1. Direct Communication: Do NOT mention the internal agents (e.g., avoid "The SQL agent found..." or "According to the RAG system..."). Speak as a unified AI assistant (e.g., "I found that...", "Our records indicate...").
+2. Conversational Context: If `Agent Results` indicates that "No specialized agents were invoked", it means the user simply greeted you or made a conversational remark. Respond warmly and conversationally without apologizing for missing data.
+3. Clarity and Formatting: Present the information clearly. Use markdown formatting (bolding, bullet points) when listing multiple data points or policies to make it readable.
+4. Handling Failures: If any agent reported partial or failed results (e.g., an error message is present), include a polite, brief caveat or apology for that specific piece of missing information.
+5. Tone: Maintain a professional, empathetic, and extremely helpful tone suitable for enterprise HR. Do not hallucinate or invent policies or data.
 
 Agent Results:
 {agent_results}
@@ -28,22 +29,22 @@ def combiner_node(state: GraphState) -> GraphState:
     """
     agent_results = state.get("agent_results", [])
     
-    if not agent_results:
-        return {"final_answer": "I'm sorry, I couldn't process your request. No agents returned results."}
-        
     formatted_results = ""
     warnings = []
     
-    for res_dict in agent_results:
-        res = AgentResult.from_dict(res_dict)
-        if res.success:
-            formatted_results += f"- {res.answer}\n"
-            # Check completeness score from doc_parser
-            comp_score = res.metadata.get("completeness_score")
-            if comp_score is not None and comp_score < 0.4:
-                warnings.append("⚠️ Only partial information was extracted from the document. Please cross-check the values.")
-        else:
-            formatted_results += f"- Error processing request: {res.error}\n"
+    if not agent_results:
+        formatted_results = "No specialized agents were invoked. Just respond conversationally to the user."
+    else:
+        for res_dict in agent_results:
+            res = AgentResult.from_dict(res_dict)
+            if res.success:
+                formatted_results += f"- {res.answer}\n"
+                # Check completeness score from doc_parser
+                comp_score = res.metadata.get("completeness_score")
+                if comp_score is not None and comp_score < 0.4:
+                    warnings.append("⚠️ Only partial information was extracted from the document. Please cross-check the values.")
+            else:
+                formatted_results += f"- Error processing request: {res.error}\n"
 
     settings = get_settings()
     llm = ChatOpenAI(

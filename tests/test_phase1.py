@@ -121,7 +121,7 @@ class TestPlannerOutput:
             parallel=False,
         )
         assert plan.agents == ["rag"]
-        assert plan.queries["rag"] == "maternity leave policy"
+        assert plan.queries.rag == "maternity leave policy"
         assert plan.parallel is False
 
     def test_valid_multi_agent_parallel_plan(self):
@@ -133,9 +133,10 @@ class TestPlannerOutput:
         assert len(plan.agents) == 2
         assert plan.parallel is True
 
-    def test_empty_agents_rejected(self):
-        with pytest.raises(Exception):  # pydantic ValidationError
-            PlannerOutput(agents=[], queries={}, parallel=False)
+    def test_empty_agents_accepted(self):
+        plan = PlannerOutput(agents=[], queries={}, parallel=True)
+        assert plan.agents == []
+
 
     def test_missing_query_for_agent_rejected(self):
         with pytest.raises(Exception):

@@ -13,6 +13,7 @@ Usage
     settings.llm_api_key  # type-safe, validated
 """
 
+import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,14 +39,14 @@ class Settings(BaseSettings):
     # Supports any OpenAI-compatible API: OpenAI, NVIDIA NIM, Together, Groq, etc.
     # Set LLM_BASE_URL to override the endpoint (e.g. NVIDIA NIM).
     # Leave LLM_BASE_URL empty / unset to use the default OpenAI endpoint.
-    llm_api_key: str           # required — API key for the LLM provider
-    llm_base_url: str = "https://integrate.api.nvidia.com/v1"  # NVIDIA NIM endpoint
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.groq.com/openai/v1"  # Groq endpoint
 
     # Model names — all three can point to the same model or different ones.
-    # Currently: deepseek-ai/deepseek-r1-0528-qwen3-8b via NVIDIA NIM
-    planner_model: str = "deepseek-ai/deepseek-r1-0528-qwen3-8b"
-    combiner_model: str = "deepseek-ai/deepseek-r1-0528-qwen3-8b"
-    agent_model: str = "deepseek-ai/deepseek-r1-0528-qwen3-8b"
+    planner_model: str = "openai/gpt-oss-120b"
+    combiner_model: str = "openai/gpt-oss-120b"
+    agent_model: str = "openai/gpt-oss-120b"
+
 
     # ── ChromaDB ──────────────────────────────────────────────────────────────
     # mode="server"  → AsyncHttpClient (Docker / production)
@@ -68,7 +69,6 @@ class Settings(BaseSettings):
     rrf_k: int = 60          # RRF constant (higher = less aggressive rank discounting)
 
     # ── SQL Agent ─────────────────────────────────────────────────────────────
-    sqlite_db_path: str = "/app/data/hr_database.sqlite"
     sql_max_rows: int = 100  # hard cap on query result rows
 
     # ── Memory / Context Compression ──────────────────────────────────────────
@@ -94,6 +94,30 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"  # DEBUG | INFO | WARNING | ERROR
 
+    # ── LangSmith Tracing ─────────────────────────────────────────────────────
+    langsmith_tracing: str = "true"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str = ""
+    langsmith_project: str = "HRMIND"
+
+
+def setup_langsmith(settings: Settings) -> None:
+    """Export LangSmith configuration to environment variables for LangChain / LangGraph tracing."""
+    if settings.langsmith_tracing:
+        val = str(settings.langsmith_tracing).strip('"\'').lower()
+        os.environ["LANGSMITH_TRACING"] = val
+        os.environ["LANGCHAIN_TRACING_V2"] = val
+        if settings.langsmith_endpoint:
+            os.environ["LANGSMITH_ENDPOINT"] = settings.langsmith_endpoint
+            os.environ["LANGCHAIN_ENDPOINT"] = settings.langsmith_endpoint
+        if settings.langsmith_api_key:
+            os.environ["LANGSMITH_API_KEY"] = settings.langsmith_api_key
+            os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+        if settings.langsmith_project:
+            proj = settings.langsmith_project.strip('"\'')
+            os.environ["LANGSMITH_PROJECT"] = proj
+            os.environ["LANGCHAIN_PROJECT"] = proj
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
@@ -103,4 +127,7 @@ def get_settings() -> Settings:
     Cached after first call — safe to call repeatedly without re-reading env.
     Cache is invalidated in tests via: get_settings.cache_clear()
     """
-    return Settings()
+    settings = Settings()
+    setup_langsmith(settings)
+    return settings
+
