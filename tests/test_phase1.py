@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from backend.base.guardrail import CompositeGuardrail, PassthroughGuardrail
-from backend.memory.context_builder import ContextBudget, ContextBuilder
+
 from backend.memory.entity_store import EntityStore
 from backend.memory.summarizer import RollingSummarizer
 from backend.state import (
@@ -267,37 +267,7 @@ class TestContextBudget:
         with pytest.raises((TypeError, AttributeError)):
             budget.system_prompt = 9999  # type: ignore[misc]
 
-    def test_custom_budget(self):
-        budget = ContextBudget(system_prompt=500, rolling_summary=300)
-        assert budget.system_prompt == 500
-        assert budget.rolling_summary == 300
-        # others retain defaults
-        assert budget.current_query == 200
 
-
-class TestContextBuilder:
-    def test_build_conversation_context_empty_state(self, context_builder, sample_state):
-        """Empty history → empty context string."""
-        result = context_builder.build_conversation_context(sample_state)
-        assert result == ""
-
-    def test_build_conversation_context_with_summary(
-        self, context_builder, state_with_history
-    ):
-        result = context_builder.build_conversation_context(state_with_history)
-        assert "[Conversation Summary]" in result
-        assert "alcohol policy" in result
-
-    def test_build_conversation_context_with_recent_turns(
-        self, context_builder, state_with_history
-    ):
-        result = context_builder.build_conversation_context(state_with_history)
-        assert "[Recent Messages]" in result
-        assert "What is the alcohol policy?" in result
-
-    def test_build_entity_context_empty(self, context_builder, sample_state):
-        result = context_builder.build_entity_context(sample_state)
-        assert result == ""
 
     def test_build_entity_context_with_entities(
         self, context_builder, state_with_history

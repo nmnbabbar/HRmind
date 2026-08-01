@@ -50,6 +50,7 @@ from backend.config import Settings, get_settings
 from backend.state import AgentResult, GraphState
 
 logger = logging.getLogger(__name__)
+RRF_SCORE_THRESHOLD = 0.01
 
 
 class RAGAgent(BaseAgent):
@@ -160,8 +161,8 @@ class RAGAgent(BaseAgent):
                 final_top_k=final_k,
             )
 
-            if not fused_chunks:
-                logger.warning("RAGAgent: no chunks retrieved for query: %r", query[:100])
+            if not fused_chunks or fused_chunks[0].metadata.get("rrf_score", 0.0) < RRF_SCORE_THRESHOLD:
+                logger.warning("RAGAgent: Low confidence or no chunks retrieved for query: %r", query[:100])
                 return AgentResult(
                     agent_name=self.name,
                     success=True,

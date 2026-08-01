@@ -1,8 +1,14 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.exceptions import OutputParserException
 import os
+import logging
+from better_profanity import profanity
 
 from backend.state import GraphState, PlannerOutput
+
+logger = logging.getLogger(__name__)
+MAX_QUERY_LENGTH = 1000
 
 PLANNER_SYSTEM_PROMPT = """You are the master routing planner for an enterprise HR AI assistant.
 Your responsibility is to analyze the user's query and meticulously decide which specialized agents to invoke to construct a complete, accurate answer.
@@ -32,6 +38,28 @@ def planner_node(state: GraphState) -> GraphState:
     Planner Node: Analyzes the state and determines the execution plan.
     Returns a dict with the `plan` key containing the serialized PlannerOutput.
     """
+    query = state.get("query", "")
+    
+    # 1. Input Length Guardrail
+    if len(query) > MAX_QUERY_LENGTH:
+        logger.warning(f"Query length {len(query)} exceeds MAX_QUERY_LENGTH {MAX_QUERY_LENGTH}")
+        ans = f"Your query is too long ({len(query)} characters). Please keep it under {MAX_QUERY_LENGTH} characters."
+        return {
+            "plan": PlannerOutput(agents=[], parallel=False, queries={}, reasoning=ans).to_dict(),
+            "final_answer": ans,
+            "previous_turn": {"query": query, "answer": ans}
+        }
+        
+    # 2. Profanity Guardrail
+    if profanity.contains_profanity(query):
+        logger.warning("Profanity detected in user query.")
+        ans = "Please maintain a professional tone. I cannot process queries containing profanity."
+        return {
+            "plan": PlannerOutput(agents=[], parallel=False, queries={}, reasoning=ans).to_dict(),
+            "final_answer": ans,
+            "previous_turn": {"query": query, "answer": ans}
+        }
+
     settings = get_settings()
     llm = ChatOpenAI(
         model=settings.planner_model, 
@@ -54,13 +82,18 @@ def planner_node(state: GraphState) -> GraphState:
     
     has_parsed_doc = state.get("parsed_document") is not None
     
-    plan: PlannerOutput = chain.invoke({
-        "query": state["query"],
-        "uploaded_file_path": state.get("uploaded_file_path"),
-        "has_parsed_doc": has_parsed_doc,
-        "entity_store": state.get("entity_store", {}),
-        "context_str": context_str
-    })
+    try:
+        plan: PlannerOutput = chain.invoke({
+            "query": state["query"],
+            "uploaded_file_path": state.get("uploaded_file_path"),
+            "has_parsed_doc": has_parsed_doc,
+            "entity_store": state.get("entity_store", {}),
+            "context_str": context_str
+        })
+    except Exception as e:
+        logger.error(f"JSON Schema Validation Error in Planner: {e}")
+        ans = "I encountered an internal error while parsing the request. Please try again or rephrase."
+        plan = PlannerOutput(agents=[], parallel=False, queries={}, reasoning=ans)
     
     update = {"plan": plan.to_dict()}
     

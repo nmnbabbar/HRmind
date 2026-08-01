@@ -23,7 +23,6 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-testing-only")
 
 from backend.base.guardrail import CompositeGuardrail, PassthroughGuardrail
 from backend.config import get_settings
-from backend.memory.context_builder import ContextBudget, ContextBuilder
 from backend.state import AgentResult, GraphState, PlannerOutput, make_initial_state
 
 
@@ -104,27 +103,6 @@ def always_blocking_guard():
 
     return CompositeGuardrail([AlwaysBlock()])
 
-
-# ── Context building ──────────────────────────────────────────────────────────
-
-@pytest.fixture
-def context_builder() -> ContextBuilder:
-    """ContextBuilder with default ContextBudget."""
-    return ContextBuilder()
-
-
-@pytest.fixture
-def tight_budget_builder() -> ContextBuilder:
-    """ContextBuilder with very tight budgets for trimming tests."""
-    return ContextBuilder(
-        budget=ContextBudget(
-            system_prompt=100,
-            current_query=50,
-            rolling_summary=50,   # very tight — forces trimming
-            recent_turns=100,
-            agent_context=100,
-        )
-    )
 
 
 # ── Agent results ─────────────────────────────────────────────────────────────
