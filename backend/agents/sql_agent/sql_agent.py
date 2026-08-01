@@ -114,9 +114,18 @@ class SQLAgent(BaseAgent):
         if guard_block:
             return guard_block
 
-        # 3. Generate SQL via LLM
+        # 3. Build Prompt with Schema and Entity Store Context
+        entity_store = state.get("entity_store", {})
+        entity_context = ""
+        if entity_store:
+            entity_context = "\n\nExtracted Entities (use these literal values directly in your SQL WHERE clauses instead of '?'):\n"
+            for k, v in entity_store.items():
+                entity_context += f"- {k}: '{v}'\n"
+
+        system_content = SQL_SYSTEM_PROMPT.format(schema=DB_SCHEMA) + entity_context
+
         messages = [
-            SystemMessage(content=SQL_SYSTEM_PROMPT.format(schema=DB_SCHEMA)),
+            SystemMessage(content=system_content),
             HumanMessage(content=nl_query),
         ]
         

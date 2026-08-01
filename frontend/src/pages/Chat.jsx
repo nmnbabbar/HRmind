@@ -36,6 +36,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [uploadedFilePath, setUploadedFilePath] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploading, setUploading] = useState(false);
   
   const endOfMessagesRef = useRef(null);
@@ -66,6 +67,7 @@ export default function Chat() {
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
       setUploadedFilePath(data.file_path);
+      setUploadedFileName(file.name);
     } catch (err) {
       console.error(err);
       alert('Failed to upload file.');
@@ -84,13 +86,15 @@ export default function Chat() {
     setMessages(prev => [...prev, { 
       role: 'user', 
       content: currentInput,
-      hasAttachment: !!uploadedFilePath 
+      hasAttachment: !!uploadedFilePath,
+      attachedFileName: uploadedFileName
     }]);
     
     setInput('');
     setIsTyping(true);
     const pathToSend = uploadedFilePath;
     setUploadedFilePath(null); // clear for next message
+    setUploadedFileName(null);
 
     // Initialize assistant response
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -255,7 +259,15 @@ export default function Chat() {
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {m.hasAttachment && m.attachedFileName && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--border)', width: 'fit-content' }}>
+                        <Paperclip size={14} color="var(--primary)" />
+                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{m.attachedFileName}</span>
+                      </div>
+                    )}
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                  </div>
                 )}
               </div>
             </div>
@@ -283,9 +295,9 @@ export default function Chat() {
             <div style={{ maxWidth: '800px', margin: '0 auto 8px auto', padding: '8px 16px', background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
                 <Paperclip size={14} color="var(--primary)" />
-                <span style={{ color: 'var(--text-main)' }}>{uploadedFilePath.split('/').pop().split('\\').pop()}</span>
+                <span style={{ color: 'var(--text-main)' }}>{uploadedFileName}</span>
               </div>
-              <button onClick={() => setUploadedFilePath(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <button onClick={() => { setUploadedFilePath(null); setUploadedFileName(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={16} />
               </button>
             </div>

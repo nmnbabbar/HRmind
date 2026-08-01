@@ -1156,6 +1156,51 @@ docker compose exec backend pytest tests/ -v --tb=short  # all tests
 
 ---
 
+## Phase 10: Performance Optimization & UI Polish ✅ COMPLETE
+
+**Goal**: Optimize memory context window to prevent LLM hallucination and out-of-scope errors on long conversations. Polish the frontend to render rich text and animations.
+
+### Problems Encountered & Fixes Implemented
+
+#### 1. Context Overload & "Out of Scope" Hallucinations
+- **Problem**: The original architecture used `recent_turns` and `conversation_summary`, accumulating vast amounts of text over multiple conversational turns. When querying dense domains (like the entire "Alcohol Policy"), the prompt size ballooned. This overwhelmed the LLM, causing degraded intent classification and triggering false-positive "Out-of-Scope" fallback errors for valid follow-up questions.
+- **Fix**: Replaced the infinitely growing context model with a strictly bounded 1-turn sliding window (`previous_turn`). The system drops older conversation history entirely, returning the LLM to a highly predictable and token-efficient state on every turn.
+
+#### 2. Pronoun Resolution in Follow-ups
+- **Problem**: In a 1-turn memory system, if a user asks "What is the alcohol policy?" followed by "What are its aims?", dropping the older history strips the Planner of the core entity ("alcohol policy"), breaking its ability to route the query.
+- **Fix**: Injected the `previous_turn` (the exact preceding question and answer) directly into the Planner's system prompt. This allows the LLM to seamlessly resolve pronouns (mapping "its" to "alcohol policy") and rewrite the user's query into a standalone sentence *before* invoking downstream agents.
+
+#### 3. State Bloat from Parallel Agent Reducers
+- **Problem**: To support parallel execution branches, LangGraph requires the `agent_results` state field to use an `operator.add` reducer. Because of this, the array would grow infinitely over hundreds of conversational turns, leading to heavy checkpoint sizes and serialization lag.
+- **Fix**: Designed a "memory-safe" slice inside the Combiner node. By using `agent_results[-num_agents:]`, the Combiner isolates strictly the N results generated in the *current* turn, entirely ignoring historical agent traces left in the background state ledger.
+
+#### 4. Unnecessary Routing & Combiner Latency
+- **Problem**: If 0 agents were selected (an out-of-scope query) or only 1 agent was selected, the LangGraph flow pointlessly pushed the state through the Router and Combiner, wasting time and resources.
+- **Fix**: Configured dynamic graph branching. If 0 agents are needed, the Planner provides the `final_answer` directly. If 1 agent is needed, the Router records the `previous_turn` on exit and bypasses the Combiner. The Combiner is strictly reserved for synthesis when `num_agents > 1`.
+
+#### 5. ChatPromptTemplate KeyError
+- **Problem**: Encountered a server crash `KeyError: "Input to ChatPromptTemplate is missing variables {'context_str'}"` during stream generation because the `previous_turn` context string wasn't properly passed through the LangChain invocation.
+- **Fix**: Updated the `chain.invoke()` payload dictionary in `planner.py` to correctly map the required `context_str` parameter.
+
+#### 6. Silent React Frontend Crashes (Blank Page)
+- **Problem**: After migrating to `react-markdown` v9 for rich text rendering, the frontend crashed with a completely blank screen because v9 introduced a major breaking change that removed the `className` prop entirely from the `<ReactMarkdown>` component.
+- **Fix**: Implemented a React `ErrorBoundary` component to catch the silent rendering crash and surface the stack trace to the UI. Fixed the underlying bug by stripping the prop and wrapping the markdown component in a native `<div className="markdown-body">`.
+
+#### 7. Horizontal Scrollbars on Long SQL Queries
+- **Problem**: The SQL agent frequently generates complex single-line `SELECT` statements. Inside markdown `<pre>` code blocks, these rigid lines extended far beyond the chat container's width, introducing an ugly horizontal scrollbar (a "sidebar").
+- **Fix**: Updated the vanilla CSS for `.markdown-body pre` and `.markdown-body code` to aggressively enforce `white-space: pre-wrap; word-break: break-word`, ensuring long queries gracefully wrap onto the next line to fit the screen.
+
+### Dead Code Cleanup
+- Deleted `backend/agents/rag_agent/guardrails.py` and stripped legacy guardrail initializations. 
+- Completely deleted the `backend/memory/` directory (`summarizer.py`, `context_builder.py`, `entity_store.py`) as they were rendered obsolete by the 1-turn architecture. 
+- Removed legacy token budgets and limits from `config.py`.
+
+### UI Polish
+- **React Markdown**: Replaced raw string output with properly formatted markdown rendering (tables, bold, lists, code blocks).
+- **Claude-Like Animations**: Added a pulsating CSS `@keyframes` animation (`.bot-pulsate` with `cubic-bezier(0.4, 0, 0.2, 1)`) to the Bot icon during the `isTyping` state, closely mimicking Claude's elegant loading state.
+
+---
+
 ## Resolved Questions
 
 - **Models**: Configured all agents and orchestrators to use the models defined in `.env` (Deepseek via NVIDIA NIM).

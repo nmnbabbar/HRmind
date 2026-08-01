@@ -81,7 +81,7 @@ async def router_node(state: GraphState) -> GraphState:
     # let's grab what changed and push it to the main state graph.
     if not plan.parallel:
         for result_dict in agent_results:
-            if result_dict["agent_name"] == "DocParserAgent" and result_dict["success"]:
+            if result_dict["agent_name"] == "doc_parser" and result_dict["success"]:
                 meta = result_dict.get("metadata", {})
                 if "entity_store" in meta:
                     update["entity_store"] = meta["entity_store"]

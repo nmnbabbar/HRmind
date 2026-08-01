@@ -165,6 +165,10 @@ class DocParserAgent(BaseAgent):
                 )
                 cached_copy = dict(cached)
                 cached_copy["cache_hit"] = True
+                entity_store = map_to_entity_store(
+                                DocType(cached_copy["document_type"]),
+                                cached_copy["extracted_fields"],
+                            )
                 return AgentResult(
                     agent_name=self.name,
                     success=True,
@@ -172,18 +176,13 @@ class DocParserAgent(BaseAgent):
                         DocType(cached_copy["document_type"]),
                         cached_copy["extracted_fields"],
                         file_path.name,
-                        build_entity_context_summary(
-                            map_to_entity_store(
-                                DocType(cached_copy["document_type"]),
-                                cached_copy["extracted_fields"],
-                            )
-                        ),
+                        build_entity_context_summary(entity_store),
                         completeness=cached_copy.get("completeness_score", 1.0),
                         from_cache=True,
                     ),
                     sources=[file_path.name],
                     structured_data=cached_copy,
-                    metadata=self._timed_result(t0, {"cache_hit": True, "file_hash": file_hash[:12]}),
+                    metadata=self._timed_result(t0, {"cache_hit": True, "file_hash": file_hash[:12], "entity_store": entity_store}),
                 )
 
         # ── 4. Extract text (pdfplumber parallel / Docx2txtLoader) ────────
@@ -214,9 +213,8 @@ class DocParserAgent(BaseAgent):
         _, fields_dict, completeness = await self._extractor.extract(doc_type, raw_text)
 
         # ── 8. Build entity context for answer ────────────────────────────
-        entity_summary = build_entity_context_summary(
-            map_to_entity_store(doc_type, fields_dict)
-        )
+        entity_store = map_to_entity_store(doc_type, fields_dict)
+        entity_summary = build_entity_context_summary(entity_store)
 
         # ── 9. Assemble ExtractionResult ───────────────────────────────────
         extraction_result = ExtractionResult(
@@ -245,6 +243,7 @@ class DocParserAgent(BaseAgent):
                 "completeness_score": completeness,
                 "cache_hit":          False,
                 "file_hash":          file_hash[:12] if file_hash else "n/a",
+                "entity_store":       entity_store,
             },
         )
 
