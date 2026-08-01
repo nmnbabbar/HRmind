@@ -45,12 +45,12 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    
+
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.detail || 'Login failed');
     }
-    
+
     const data = await res.json();
     setToken(data.access_token);
   };
@@ -61,12 +61,12 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
     });
-    
+
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.detail || 'Registration failed');
     }
-    
+
     const data = await res.json();
     setToken(data.access_token);
   };

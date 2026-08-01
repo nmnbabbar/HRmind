@@ -39,7 +39,7 @@ export default function Chat() {
   const [uploadedFilePath, setUploadedFilePath] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploading, setUploading] = useState(false);
-  
+
   const endOfMessagesRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -89,18 +89,18 @@ export default function Chat() {
   const handleSubmit = async (e, overrideInput = null) => {
     if (e) e.preventDefault();
     if (isTyping) return;
-    
+
     const textToSubmit = overrideInput !== null ? overrideInput : input;
     if (!textToSubmit.trim() && !uploadedFilePath) return;
-    
+
     const currentInput = textToSubmit || (uploadedFilePath ? 'Please analyze this document.' : '');
-    setMessages(prev => [...prev, { 
-      role: 'user', 
+    setMessages(prev => [...prev, {
+      role: 'user',
       content: currentInput,
       hasAttachment: !!uploadedFilePath,
       attachedFileName: uploadedFileName
     }]);
-    
+
     setInput('');
     setIsTyping(true);
     setIsReceiving(false);
@@ -115,8 +115,8 @@ export default function Chat() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          query: currentInput, 
+        body: JSON.stringify({
+          query: currentInput,
           session_id: sessionId,
           uploaded_file_path: pathToSend
         }),
@@ -128,7 +128,7 @@ export default function Chat() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
-      
+
       let buffer = '';
       let firstTokenReceived = false;
       let isDone = false;
@@ -139,7 +139,7 @@ export default function Chat() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n\n');
-        
+
         buffer = lines.pop() || '';
 
         for (const line of lines) {
@@ -149,7 +149,7 @@ export default function Chat() {
               isDone = true;
               break;
             }
-            
+
             try {
               const data = JSON.parse(dataStr);
               if (data.token) {
@@ -191,11 +191,11 @@ export default function Chat() {
           }
         }
       }
-      
+
       // Finished streaming
       setIsTyping(false);
       setIsReceiving(false);
-      
+
     } catch (error) {
       console.error('Fetch error:', error);
       setIsTyping(false);
@@ -219,176 +219,181 @@ export default function Chat() {
 
   return (
     <ErrorBoundary>
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-dark)' }}>
-      
-      {/* Sidebar */}
-      <aside style={{ width: '280px', background: 'var(--bg-darker)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '16px' }}>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', fontSize: '1.25rem', fontWeight: '700', marginBottom: '24px' }}>
-          <div className={isTyping ? "bot-pulsate" : ""} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-            <Bot size={28} color="var(--primary)" />
-          </div>
-          <span style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HrMind</span>
-        </div>
+      <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-dark)' }}>
 
-        <button onClick={handleNewChat} className="btn btn-outline" style={{ display: 'flex', justifyContent: 'flex-start', background: 'var(--bg-panel)', padding: '12px', width: '100%' }}>
-          <PlusCircle size={18} /> New Chat
-        </button>
+        {/* Sidebar */}
+        <aside style={{ width: '280px', background: 'var(--bg-darker)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '16px' }}>
 
-        <div style={{ marginTop: '24px', flex: 1, overflowY: 'auto' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '12px', padding: '0 12px' }}>Sample Questions</div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {[
-              "What is the company's employee expense policy?", 
-              "Which employee has the highest number of leaves in Engineering department?", 
-              "Top 3 Highest earning employees in Finance?",
-              "How many Data Scientists do we have?"
-            ].map((sample, i) => (
-              <div key={i} 
-                   onClick={(e) => handleSubmit(e, sample)}
-                   style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}
-                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <MessageSquare size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <span style={{ lineHeight: '1.4' }}>{sample}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            <Settings size={18} /> Settings
-          </div>
-          <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            <LogOut size={18} /> Log out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Chat Area */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        <div className="bg-blobs" style={{ position: 'absolute', opacity: 0.5 }}></div>
-
-        {/* Header */}
-        <header style={{ height: '64px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', background: 'rgba(10, 11, 14, 0.8)', backdropFilter: 'blur(12px)' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: '500' }}>Current Session</h2>
-          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Logged in as <span style={{ color: 'white', fontWeight: '500' }}>{user?.name || 'User'}</span>
-          </div>
-        </header>
-
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {messages.map((m, i) => (
-            <div key={i} style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
-              
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                            background: m.role === 'user' ? 'var(--primary)' : 'var(--bg-panel)',
-                            boxShadow: m.role === 'user' ? '0 0 15px var(--primary-glow)' : 'none',
-                            border: m.role === 'assistant' ? '1px solid var(--border)' : 'none' }}>
-                {m.role === 'user' ? <User size={20} color="white" /> : <Bot size={20} color="var(--primary)" />}
-              </div>
-              
-              <div style={{ background: m.role === 'user' ? 'var(--bg-panel)' : 'transparent',
-                            padding: m.role === 'user' ? '12px 16px' : '8px 0',
-                            borderRadius: '16px', borderTopRightRadius: m.role === 'user' ? 0 : '16px',
-                            borderTopLeftRadius: m.role === 'assistant' ? 0 : '16px',
-                            color: 'var(--text-main)', fontSize: '1rem', lineHeight: '1.6' }}>
-                {m.role === 'assistant' ? (
-                  <div className="markdown-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {m.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {m.hasAttachment && m.attachedFileName && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--border)', width: 'fit-content' }}>
-                        <Paperclip size={14} color="var(--primary)" />
-                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{m.attachedFileName}</span>
-                      </div>
-                    )}
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                  </div>
-                )}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', fontSize: '1.25rem', fontWeight: '700', marginBottom: '24px' }}>
+            <div className={isTyping ? "bot-pulsate" : ""} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+              <Bot size={28} color="var(--primary)" />
             </div>
-          ))}
-          
-          {(isTyping && !isReceiving) && (
-            <div style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-              <div className="bot-pulsate" style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--primary)', boxShadow: '0 0 10px var(--primary-glow)' }}>
-                <Bot size={20} color="var(--primary)" />
-              </div>
-              <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-                <span style={{ fontWeight: 500, background: 'linear-gradient(90deg, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'pulse-text 2s infinite' }}>Thinking</span>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '100%' }}>
-                  <span className="dot" style={{ animation: 'blink 1.4s infinite both', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
-                  <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.2s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
-                  <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.4s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+            <span style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HrMind</span>
+          </div>
+
+          <button onClick={handleNewChat} className="btn btn-outline" style={{ display: 'flex', justifyContent: 'flex-start', background: 'var(--bg-panel)', padding: '12px', width: '100%' }}>
+            <PlusCircle size={18} /> New Chat
+          </button>
+
+          <div style={{ marginTop: '24px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '12px', padding: '0 12px' }}>Sample Questions</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {[
+                "What is the company's employee expense policy?",
+                "Which employee has the highest number of leaves in Engineering department?",
+                "Top 3 Highest earning employees in Finance?",
+                "How many Data Scientists do we have?"
+              ].map((sample, i) => (
+                <div key={i}
+                  onClick={(e) => handleSubmit(e, sample)}
+                  style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <MessageSquare size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span style={{ lineHeight: '1.4' }}>{sample}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+              <Settings size={18} /> Settings
+            </div>
+            <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+              <LogOut size={18} /> Log out
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Chat Area */}
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <div className="bg-blobs" style={{ position: 'absolute', opacity: 0.5 }}></div>
+
+          {/* Header */}
+          <header style={{ height: '64px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', background: 'rgba(10, 11, 14, 0.8)', backdropFilter: 'blur(12px)' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: '500' }}>Current Session</h2>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              Logged in as <span style={{ color: 'white', fontWeight: '500' }}>{user?.name || 'User'}</span>
+            </div>
+          </header>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
+
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  background: m.role === 'user' ? 'var(--primary)' : 'var(--bg-panel)',
+                  boxShadow: m.role === 'user' ? '0 0 15px var(--primary-glow)' : 'none',
+                  border: m.role === 'assistant' ? '1px solid var(--border)' : 'none'
+                }}>
+                  {m.role === 'user' ? <User size={20} color="white" /> : <Bot size={20} color="var(--primary)" />}
+                </div>
+
+                <div style={{
+                  background: m.role === 'user' ? 'var(--bg-panel)' : 'transparent',
+                  padding: m.role === 'user' ? '12px 16px' : '8px 0',
+                  borderRadius: '16px', borderTopRightRadius: m.role === 'user' ? 0 : '16px',
+                  borderTopLeftRadius: m.role === 'assistant' ? 0 : '16px',
+                  color: 'var(--text-main)', fontSize: '1rem', lineHeight: '1.6'
+                }}>
+                  {m.role === 'assistant' ? (
+                    <div className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {m.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {m.hasAttachment && m.attachedFileName && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--border)', width: 'fit-content' }}>
+                          <Paperclip size={14} color="var(--primary)" />
+                          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{m.attachedFileName}</span>
+                        </div>
+                      )}
+                      <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={endOfMessagesRef} />
-        </div>
+            ))}
 
-        {/* Input Area */}
-        <div style={{ padding: '24px', background: 'transparent' }}>
-          
-          {uploadedFilePath && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 8px auto', padding: '8px 16px', background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
-                <Paperclip size={14} color="var(--primary)" />
-                <span style={{ color: 'var(--text-main)' }}>{uploadedFileName}</span>
+            {(isTyping && !isReceiving) && (
+              <div style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                <div className="bot-pulsate" style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--primary)', boxShadow: '0 0 10px var(--primary-glow)' }}>
+                  <Bot size={20} color="var(--primary)" />
+                </div>
+                <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                  <span style={{ fontWeight: 500, background: 'linear-gradient(90deg, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'pulse-text 2s infinite' }}>Thinking</span>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '100%' }}>
+                    <span className="dot" style={{ animation: 'blink 1.4s infinite both', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                    <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.2s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                    <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.4s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                  </div>
+                </div>
               </div>
-              <button onClick={() => { setUploadedFilePath(null); setUploadedFileName(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                <X size={16} />
-              </button>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', display: 'flex', gap: '8px' }}>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              style={{ display: 'none' }} 
-              accept=".pdf,.docx" 
-            />
-            
-            <button 
-              type="button" 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={uploading || isTyping}
-              style={{ width: '56px', borderRadius: '24px', background: 'var(--bg-panel)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (uploading || isTyping) ? 'not-allowed' : 'pointer', color: 'var(--text-muted)' }}
-            >
-              {uploading ? <div className="dot" style={{ animation: 'blink 1s infinite' }}>•</div> : <Paperclip size={20} />}
-            </button>
-
-            <div style={{ flex: 1, position: 'relative' }}>
-              <input 
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="Ask HrMind a question..."
-                style={{ width: '100%', padding: '16px 64px 16px 24px', borderRadius: '24px', border: '1px solid var(--border)', background: 'var(--bg-panel)', backdropFilter: 'blur(12px)', color: 'white', fontSize: '1rem', outline: 'none', boxShadow: 'var(--shadow-lg)' }}
-              />
-              <button type="submit" disabled={(!input.trim() && !uploadedFilePath) || isTyping} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', width: '40px', borderRadius: '50%', background: (input.trim() || uploadedFilePath) ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (input.trim() || uploadedFilePath) ? 'pointer' : 'not-allowed', color: 'white', transition: 'all 0.2s' }}>
-                <Send size={18} style={{ transform: 'translateX(1px) translateY(1px)' }} />
-              </button>
-            </div>
-          </form>
-          <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            HrMind uses AI and may generate inaccurate information. Please verify important HR policies.
+            )}
+            <div ref={endOfMessagesRef} />
           </div>
-        </div>
 
-      </main>
+          {/* Input Area */}
+          <div style={{ padding: '24px', background: 'transparent' }}>
 
-      <style dangerouslySetInnerHTML={{__html: `
+            {uploadedFilePath && (
+              <div style={{ maxWidth: '800px', margin: '0 auto 8px auto', padding: '8px 16px', background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
+                  <Paperclip size={14} color="var(--primary)" />
+                  <span style={{ color: 'var(--text-main)' }}>{uploadedFileName}</span>
+                </div>
+                <button onClick={() => { setUploadedFilePath(null); setUploadedFileName(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', display: 'flex', gap: '8px' }}>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+                accept=".pdf,.docx"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || isTyping}
+                style={{ width: '56px', borderRadius: '24px', background: 'var(--bg-panel)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (uploading || isTyping) ? 'not-allowed' : 'pointer', color: 'var(--text-muted)' }}
+              >
+                {uploading ? <div className="dot" style={{ animation: 'blink 1s infinite' }}>•</div> : <Paperclip size={20} />}
+              </button>
+
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  placeholder="Ask HrMind a question..."
+                  style={{ width: '100%', padding: '16px 64px 16px 24px', borderRadius: '24px', border: '1px solid var(--border)', background: 'var(--bg-panel)', backdropFilter: 'blur(12px)', color: 'white', fontSize: '1rem', outline: 'none', boxShadow: 'var(--shadow-lg)' }}
+                />
+                <button type="submit" disabled={(!input.trim() && !uploadedFilePath) || isTyping} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', width: '40px', borderRadius: '50%', background: (input.trim() || uploadedFilePath) ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (input.trim() || uploadedFilePath) ? 'pointer' : 'not-allowed', color: 'white', transition: 'all 0.2s' }}>
+                  <Send size={18} style={{ transform: 'translateX(1px) translateY(1px)' }} />
+                </button>
+              </div>
+            </form>
+            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              HrMind uses AI and may generate inaccurate information. Please verify important HR policies.
+            </div>
+          </div>
+
+        </main>
+
+        <style dangerouslySetInnerHTML={{
+          __html: `
         @keyframes blink {
           0% { opacity: 0.2; }
           20% { opacity: 1; }
@@ -424,7 +429,7 @@ export default function Chat() {
         .markdown-body a { color: var(--primary); text-decoration: none; }
         .markdown-body a:hover { text-decoration: underline; }
       `}} />
-    </div>
+      </div>
     </ErrorBoundary>
   );
 }
