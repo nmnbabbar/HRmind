@@ -69,13 +69,8 @@ class RAGContextBuilder:
         response = await llm.ainvoke(messages)
     """
 
-    def __init__(
-        self,
-        max_summary_tokens: int = 600,
-        max_recent_tokens: int = 800,
-    ) -> None:
-        self._max_summary_tokens = max_summary_tokens
-        self._max_recent_tokens = max_recent_tokens
+    def __init__(self) -> None:
+        pass
 
     def build(
         self,
@@ -112,32 +107,7 @@ class RAGContextBuilder:
         system_content = RAG_SYSTEM_PROMPT.format(context=context if context else "No relevant documents found.")
         messages.append(SystemMessage(content=system_content))
 
-        # 2. Conversation summary (if present) — trimmed to budget
-        summary = state.get("conversation_summary", "").strip()
-        if summary:
-            truncated_summary = self._truncate(summary, self._max_summary_tokens)
-            messages.append(
-                HumanMessage(
-                    content=f"[Conversation summary so far]\n{truncated_summary}"
-                )
-            )
-            messages.append(
-                AIMessage(content="Understood. I'll use this context for your question.")
-            )
 
-        # 3. Recent turns (last N turns verbatim)
-        recent_turns = state.get("recent_turns", [])
-        if recent_turns:
-            remaining_tokens = self._max_recent_tokens
-            for turn in recent_turns[-3:]:  # max 3 recent turns
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                truncated = self._truncate(content, remaining_tokens // 3)
-                if role == "user":
-                    messages.append(HumanMessage(content=truncated))
-                else:
-                    messages.append(AIMessage(content=truncated))
-                remaining_tokens -= len(truncated) // 4  # rough token estimate
 
         # 4. Current query
         messages.append(HumanMessage(content=query))

@@ -89,4 +89,13 @@ async def router_node(state: GraphState) -> GraphState:
                     update["parsed_document"] = result_dict["structured_data"]
                     update["uploaded_file_path"] = None  # Clear the upload so it isn't parsed again
     
+    # Since route_after_planner bypasses the router for 0 agents,
+    # if we reach this point, we know len(agents_to_run) > 0.
+    # If there is exactly 1 agent, we skip the combiner, so we populate `final_answer` here.
+    if len(agents_to_run) == 1 and agent_results:
+        # Exactly one agent invoked, use its answer directly
+        final_ans = agent_results[0].get("answer", "")
+        update["final_answer"] = final_ans
+        update["previous_turn"] = {"query": state["query"], "answer": final_ans}
+        
     return update

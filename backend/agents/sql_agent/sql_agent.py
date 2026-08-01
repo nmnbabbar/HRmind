@@ -64,6 +64,12 @@ Your job is to translate the user's natural language question into a syntactical
 Here is the exact database schema you must use:
 {schema}
 
+Important Schema Context:
+- The `employees` table links to `departments` via `department_id`.
+- A department's manager is also an employee. `departments.manager_id` references `employees.id`.
+- Always select human-readable columns (e.g., first_name and last_name) rather than just IDs when returning results.
+- `leave_balances` and `salary_history` are linked to employees via `employee_id`.
+
 Rules:
 1. ONLY return the raw SQL query. Do not wrap it in markdown block quotes (e.g. no ```sql). 
 2. Do not include any explanations, preambles, or postscripts. Just the raw SQL string.

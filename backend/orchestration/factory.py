@@ -6,9 +6,7 @@ from backend.agents.rag_agent.rag_agent import RAGAgent
 from backend.agents.sql_agent.sql_agent import SQLAgent
 from backend.agents.doc_parser_agent.doc_parser_agent import DocParserAgent
 
-# RAG dependencies will be imported lazily inside get_agent to avoid
-# circular imports and missing modules if they are initialized elsewhere.
-from backend.agents.rag_agent.guardrails import TopicGuardrail, GroundingGuardrail
+
 
 logger = logging.getLogger(__name__)
 

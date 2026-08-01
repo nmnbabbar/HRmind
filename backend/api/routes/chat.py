@@ -31,6 +31,7 @@ async def chat_stream(
     
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
+            combiner_run = False
             # LangGraph v2 stream_events
             async for event in graph.astream_events(state, config=config, version="v2"):
                 # We specifically look for the Combiner node's LLM chunks
@@ -39,10 +40,19 @@ async def chat_stream(
                     # This prevents the planner's structured output JSON from leaking to the frontend
                     node_name = event.get("metadata", {}).get("langgraph_node")
                     if node_name == "combiner":
+                        combiner_run = True
                         chunk = event["data"]["chunk"].content
                         if isinstance(chunk, str) and chunk:
                             # SSE format: data: {"token": "..."}\n\n
                             yield f"data: {json.dumps({'token': chunk})}\n\n"
+            
+            # If the combiner was bypassed (e.g., only 1 agent ran), we must fetch the final answer
+            # directly from the state and yield it.
+            if not combiner_run:
+                final_state = graph.get_state(config).values
+                final_answer = final_state.get("final_answer", "")
+                if final_answer:
+                    yield f"data: {json.dumps({'token': final_answer})}\n\n"
                         
             yield "data: [DONE]\n\n"
         except Exception as e:

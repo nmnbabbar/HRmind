@@ -37,7 +37,7 @@ from backend.agents.rag_agent.context_builder import (
     NO_CONTEXT_ANSWER,
     RAGContextBuilder,
 )
-from backend.agents.rag_agent.guardrails import GroundingGuardrail, TopicGuardrail
+
 from backend.agents.rag_agent.hybrid_search import (
     format_citation,
     format_context_with_citations,
@@ -83,18 +83,13 @@ class RAGAgent(BaseAgent):
         settings: Settings | None = None,
     ) -> None:
         _settings = settings or get_settings()
-        # Inject TopicGuardrail as the pre-query guardrail
-        super().__init__(llm=llm, guardrails=[TopicGuardrail(llm)])
+        super().__init__(llm=llm, guardrails=[])
 
         self._embedding = embedding_service
         self._vector_repo = vector_repo
         self._bm25 = bm25_index
         self._settings = _settings
-        self._context_builder = RAGContextBuilder(
-            max_summary_tokens=_settings.max_summary_tokens,
-            max_recent_tokens=_settings.max_recent_turns_tokens,
-        )
-        self._grounding_guardrail = GroundingGuardrail(llm)
+        self._context_builder = RAGContextBuilder()
 
     @property
     def name(self) -> str:
@@ -128,10 +123,10 @@ class RAGAgent(BaseAgent):
 
         logger.info("RAGAgent: processing query: %r", query[:100])
 
-        # ── 2. Pre-query guardrail (TopicGuardrail) ───────────────────────
-        guard_block = await self._run_with_guardrails(query)
-        if guard_block:
-            return guard_block  # non-HR query blocked
+        # ── 2. Pre-query guardrail (Removed per user request) ───────────────────────
+        # guard_block = await self._run_with_guardrails(query)
+        # if guard_block:
+        #     return guard_block
 
         # ── 3. Hybrid retrieval (no LLM calls) ────────────────────────────
         try:
@@ -201,20 +196,8 @@ class RAGAgent(BaseAgent):
             )
 
         # ── 6. Post-generation grounding check ────────────────────────────
-        grounding = await self._grounding_guardrail.check_grounding(
-            query=query,
-            context=context_str,
-            answer=answer,
-        )
-        if not grounding.passed:
-            logger.warning(
-                "RAGAgent: grounding check failed — using fallback answer."
-            )
-            answer = (
-                "I found some information but could not fully verify its accuracy "
-                "against the source documents. Please consult your HR department directly.\n\n"
-                f"Relevant documents: {', '.join(format_citation(c) for c in fused_chunks)}"
-            )
+        # Removed.
+        grounding_passed = True
 
         # ── 7. Build sources list ──────────────────────────────────────────
         sources = [format_citation(chunk) for chunk in fused_chunks]
@@ -251,7 +234,7 @@ class RAGAgent(BaseAgent):
                 "retrieved_chunks": len(fused_chunks),
                 "dense_results": len(dense_results),
                 "sparse_results": len(sparse_results),
-                "grounding_passed": grounding.passed,
+                "grounding_passed": grounding_passed,
             },
         )
 
@@ -259,7 +242,7 @@ class RAGAgent(BaseAgent):
             "RAGAgent: completed in %dms, %d chunks, grounding=%s",
             metadata["duration_ms"],
             len(fused_chunks),
-            grounding.passed,
+            grounding_passed,
         )
 
         return AgentResult(

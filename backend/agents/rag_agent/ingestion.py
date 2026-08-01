@@ -56,9 +56,9 @@ SUPPORTED_EXTENSIONS = {".pdf", ".docx"}
 # Ingestion log collection — tracks which file hashes have been ingested
 INGESTION_LOG_COLLECTION = "ingestion_log"
 
-# Splitter config — smaller chunks for precise citation granularity
-CHUNK_SIZE = 512
-CHUNK_OVERLAP = 128
+# Splitter config — larger chunks for better context preservation (especially bulleted lists)
+CHUNK_SIZE = 1536
+CHUNK_OVERLAP = 256
 
 # BGE instruction prefix — improves retrieval accuracy for bge-large
 BGE_PASSAGE_PREFIX = "Represent this sentence for searching relevant passages: "

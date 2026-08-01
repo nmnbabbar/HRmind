@@ -54,7 +54,8 @@ class Settings(BaseSettings):
     chroma_mode: str = "local"                      # "server" | "local"
     chroma_host: str = "localhost"                   # used only in server mode
     chroma_port: int = 8000                          # used only in server mode
-    chroma_persist_dir: str = "./chroma_data"        # used only in local mode
+    _root_chroma: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    chroma_persist_dir: str = os.path.join(_root_chroma, "chroma_data")
     chroma_collection_name: str = "hr_documents"
 
     # ── Embeddings ────────────────────────────────────────────────────────────
@@ -63,24 +64,19 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-large-en-v1.5"
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
-    dense_top_k: int = 20    # candidates from dense (ChromaDB) search
-    sparse_top_k: int = 20   # candidates from sparse (BM25) search
-    final_top_k: int = 8     # after RRF fusion: top chunks sent to LLM
+    dense_top_k: int = 10    # candidates from dense (ChromaDB) search
+    sparse_top_k: int = 10   # candidates from sparse (BM25) search
+    final_top_k: int = 4     # after RRF fusion: top chunks sent to LLM
     rrf_k: int = 60          # RRF constant (higher = less aggressive rank discounting)
 
     # ── SQL Agent ─────────────────────────────────────────────────────────────
     sql_max_rows: int = 100  # hard cap on query result rows
 
-    # ── Memory / Context Compression ──────────────────────────────────────────
-    summary_every_n_turns: int = 10    # compress history after N user turns
-    recent_turns_to_keep: int = 3      # verbatim turns always passed to agents
-
     # ── Context Token Budgets ─────────────────────────────────────────────────
-    # Priority: system_prompt > current_query > summary > recent_turns > agent_context
+    # Priority: system_prompt > current_query > summary > agent_context
     max_system_prompt_tokens: int = 1000
     max_summary_tokens: int = 600
-    max_recent_turns_tokens: int = 800
-    max_agent_context_tokens: int = 1000
+    max_agent_context_tokens: int = 4000
 
     # ── File Upload ───────────────────────────────────────────────────────────
     upload_dir: str = "/app/uploads"
@@ -88,8 +84,11 @@ class Settings(BaseSettings):
     upload_ttl_hours: int = 1  # files deleted after this many hours
 
     # ── Paths ─────────────────────────────────────────────────────────────────
-    hr_docs_path: str = "./data/hr_documents"        # local dev path (override in Docker)
-    sqlite_db_path: str = "./data/hr_database.sqlite"  # local dev path
+    # Local dev paths — absolute based on project root (1 level up from backend)
+    # Using relative paths (like "./data") crashes if uvicorn is started from the wrong directory.
+    _root: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    hr_docs_path: str = os.path.join(_root, "data", "hr_documents")
+    sqlite_db_path: str = os.path.join(_root, "data", "hr_database.sqlite")
 
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"  # DEBUG | INFO | WARNING | ERROR

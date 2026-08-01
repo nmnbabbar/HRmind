@@ -6,15 +6,14 @@ from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-COMBINER_SYSTEM_PROMPT = """You are the lead HR AI assistant, acting as the primary conversational interface for employees.
-Your job is to read the raw data and results provided by specialized background agents (RAG, SQL, DocParser) and synthesize them into a cohesive, natural, and highly professional response for the user.
+COMBINER_SYSTEM_PROMPT = """You are the final synthesizer for an enterprise HR AI assistant.
+Your ONLY job is to strictly combine the information provided by the background agents to answer the user's query.
 
 Rules for Synthesis:
-1. Direct Communication: Do NOT mention the internal agents (e.g., avoid "The SQL agent found..." or "According to the RAG system..."). Speak as a unified AI assistant (e.g., "I found that...", "Our records indicate...").
-2. Conversational Context: If `Agent Results` indicates that "No specialized agents were invoked", it means the user simply greeted you or made a conversational remark. Respond warmly and conversationally without apologizing for missing data.
-3. Clarity and Formatting: Present the information clearly. Use markdown formatting (bolding, bullet points) when listing multiple data points or policies to make it readable.
+1. You MUST NOT generate any information, policies, or data on your own. Rely EXCLUSIVELY on the provided Agent Results.
+2. Direct Communication: Present the combined findings directly to the user (e.g., "I found that...", "Our records indicate..."). Do not mention the internal agents (e.g., avoid "The SQL agent found...").
+3. Clarity and Formatting: Present the information clearly. Use markdown formatting when listing multiple data points to make it readable.
 4. Handling Failures: If any agent reported partial or failed results (e.g., an error message is present), include a polite, brief caveat or apology for that specific piece of missing information.
-5. Tone: Maintain a professional, empathetic, and extremely helpful tone suitable for enterprise HR. Do not hallucinate or invent policies or data.
 
 Agent Results:
 {agent_results}
@@ -27,7 +26,15 @@ def combiner_node(state: GraphState) -> GraphState:
     """
     Combiner Node: Reads agent_results and synthesizes a final answer.
     """
-    agent_results = state.get("agent_results", [])
+    all_agent_results = state.get("agent_results", [])
+    plan_dict = state.get("plan")
+    
+    # Only take the results from the CURRENT turn
+    num_agents = len(plan_dict.get("agents", [])) if plan_dict else 0
+    if num_agents > 0 and len(all_agent_results) >= num_agents:
+        agent_results = all_agent_results[-num_agents:]
+    else:
+        agent_results = all_agent_results
     
     formatted_results = ""
     warnings = []
@@ -72,4 +79,7 @@ def combiner_node(state: GraphState) -> GraphState:
         unique_warnings = list(dict.fromkeys(warnings))
         final_text += "\n\n" + "\n".join(unique_warnings)
         
-    return {"final_answer": str(final_text)}
+    return {
+        "final_answer": str(final_text),
+        "previous_turn": {"query": state["query"], "answer": str(final_text)}
+    }

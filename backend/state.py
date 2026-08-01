@@ -141,7 +141,7 @@ class AgentResult:
         return cls(
             agent_name=agent_name,
             success=False,
-            answer="",
+            answer=f"**Error ({agent_name}):** {error}",
             error=error,
             metadata=metadata or {},
         )
@@ -187,27 +187,18 @@ class GraphState(TypedDict, total=False):
                                          # Planner checks this to skip re-invoking DocParser.
 
     # ── Error handling ─────────────────────────────────────────────────────
-    error: str | None                    # set if a node fails fatally
+    previous_turn: dict | None           # {"query": "...", "answer": "..."}
 
-
-
-def make_initial_state(query: str, session_id: str) -> GraphState:
+def make_initial_state(query: str, session_id: str) -> dict:
     """
-    Factory: create a valid initial GraphState for a new turn.
-
-    Separates state construction from graph execution — keeps node code clean.
+    Factory: create the input state for a new turn.
+    Returns a dict with ONLY the fields that must be updated/reset.
+    LangGraph will merge this into the existing MemorySaver state.
     """
-    return GraphState(
-        query=query,
-        session_id=session_id,
-        conversation_summary="",
-        recent_turns=[],
-        entity_store={},
-        plan=None,
-        agent_results=[],
-        final_answer="",
-        uploaded_file_path=None,
-        parsed_document=None,
-        error=None,
-    )
+    return {
+        "query": query,
+        "session_id": session_id,
+        "plan": None,
+        "error": None,
+    }
 

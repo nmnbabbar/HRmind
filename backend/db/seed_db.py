@@ -32,8 +32,8 @@ def generate_mock_data(db_path: Path, schema_path: Path):
         cursor.execute("INSERT INTO departments (name) VALUES (?)", (dept,))
     
     # 3. Insert Employees
-    first_names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy"]
-    last_names = ["Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor"]
+    first_names = ["Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Ananya", "Diya", "Aadhya", "Priya", "Neha", "Rohan", "Rahul", "Pooja", "Sneha", "Karan", "Kavya", "Vikram", "Ishita"]
+    last_names = ["Sharma", "Patel", "Singh", "Kumar", "Gupta", "Deshmukh", "Joshi", "Iyer", "Nair", "Reddy", "Verma", "Rao", "Das", "Chauhan"]
     job_titles = ["Software Engineer", "HR Specialist", "Sales Representative", "Marketing Manager", "Financial Analyst", "Data Scientist", "Product Manager"]
     
     employees_data = []
@@ -93,10 +93,15 @@ def generate_mock_data(db_path: Path, schema_path: Path):
         VALUES (?, ?, ?)
     """, salary_data)
     
-    # Assign random managers to departments
+    # Assign managers to departments from within the department
     for i in range(1, len(departments) + 1):
-        manager_id = random.randint(1, 50)
-        cursor.execute("UPDATE departments SET manager_id = ? WHERE id = ?", (manager_id, i))
+        cursor.execute("SELECT id FROM employees WHERE department_id = ?", (i,))
+        dept_employees = cursor.fetchall()
+        if dept_employees:
+            manager_id = random.choice(dept_employees)[0]
+            cursor.execute("UPDATE departments SET manager_id = ? WHERE id = ?", (manager_id, i))
+            # Also update their job title to make it clear they are a manager
+            cursor.execute("UPDATE employees SET job_title = 'Department Manager' WHERE id = ?", (manager_id,))
         
     conn.commit()
     conn.close()

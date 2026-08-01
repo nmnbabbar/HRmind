@@ -17,12 +17,12 @@ Execution Rules:
 2. Parsed Context: If `has_parsed_doc` is true BUT `uploaded_file_path` is None, the file was already parsed. DO NOT include "doc_parser". Rely on the `entity_store` for extracted values.
 3. Policy/Rules: If the query asks about how something works, company rules, or policies, ALWAYS include "rag".
 4. Data/Stats: If the query asks for specific employee facts, numbers, or records, ALWAYS include "sql".
-5. Conversational/Greetings: If the user's query is just a conversational greeting (like "hi", "hello", "thanks") or off-topic, set `agents` to an empty list `[]`. Do NOT invoke "sql" or "rag" for greetings.
+5. Conversational/Out of Scope: If the user's query is a conversational greeting (like "hi", "hello") OR falls outside the scope of HR, company policies, or employee data (e.g. asking to write code, general trivia), set `agents` to an empty list `[]`. In the `reasoning` field, provide a direct, polite fallback response to the user (e.g., "Hi! I am the HR AI assistant. How can I help you?" or "I'm sorry, I can only assist with HR-related inquiries.").
 6. Execution Order (`parallel`): 
    - Set `parallel=True` if the selected agents can run independently.
    - Set `parallel=False` if one agent explicitly depends on the output of another (e.g., DocParser must extract an employee ID before SQL can query their record).
-
-Output: Provide the selected agents, the `parallel` flag, and a specific rewritten `query` for EACH selected agent. The rewritten query should give that agent clear, specialized instructions (e.g., for SQL, specify exactly what data is needed; for RAG, specify the exact policy topic).
+7. Output: Provide the selected agents, the `parallel` flag, and a specific rewritten `query` for EACH selected agent. The rewritten query should give that agent clear, specialized instructions.
+8. Context Resolution: You may receive the "Previous Turn" context. Use this ONLY to resolve pronouns or missing context in the current User Query (e.g. if the user says "what are its aims", refer to the previous turn to know what "it" is, and rewrite the query for the agent as "what are the aims of the alcohol policy"). Do NOT answer the question yourself.
 """
 
 from backend.config import get_settings
@@ -40,9 +40,14 @@ def planner_node(state: GraphState) -> GraphState:
         api_key=settings.llm_api_key
     ).with_structured_output(PlannerOutput)
     
+    previous_turn = state.get("previous_turn")
+    context_str = ""
+    if previous_turn:
+        context_str = f"\n\nPrevious Question: {previous_turn['query']}\nPrevious Answer: {previous_turn['answer']}"
+        
     prompt = ChatPromptTemplate.from_messages([
         ("system", PLANNER_SYSTEM_PROMPT),
-        ("user", "User Query: {query}\n\nUploaded File Path: {uploaded_file_path}\nParsed Document exists: {has_parsed_doc}\nEntity Store: {entity_store}")
+        ("user", "User Query: {query}\n\nUploaded File Path: {uploaded_file_path}\nParsed Document exists: {has_parsed_doc}\nEntity Store: {entity_store}{context_str}")
     ])
     
     chain = prompt | llm
@@ -53,7 +58,16 @@ def planner_node(state: GraphState) -> GraphState:
         "query": state["query"],
         "uploaded_file_path": state.get("uploaded_file_path"),
         "has_parsed_doc": has_parsed_doc,
-        "entity_store": state.get("entity_store", {})
+        "entity_store": state.get("entity_store", {}),
+        "context_str": context_str
     })
     
-    return {"plan": plan.to_dict()}
+    update = {"plan": plan.to_dict()}
+    
+    # If no agents are needed, set the final_answer immediately so the graph can exit.
+    if not plan.agents:
+        final_ans = plan.reasoning or "I'm sorry, I cannot assist with that request."
+        update["final_answer"] = final_ans
+        update["previous_turn"] = {"query": state["query"], "answer": final_ans}
+        
+    return update
