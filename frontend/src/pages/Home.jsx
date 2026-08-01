@@ -33,9 +33,6 @@ export default function Home() {
             <Link to="/signup" className="btn btn-primary" style={{ padding: '16px 32px', fontSize: '1.125rem' }}>
               Get Started <ArrowRight size={20} />
             </Link>
-            <Link to="/chat" className="btn btn-outline" style={{ padding: '16px 32px', fontSize: '1.125rem' }}>
-              Try Demo
-            </Link>
           </div>
 
           {/* Feature Cards */}

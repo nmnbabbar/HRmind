@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, User, Send, Settings, History, PlusCircle, LogOut, Paperclip, X } from 'lucide-react';
+import { Bot, User, Send, Settings, MessageSquare, PlusCircle, LogOut, Paperclip, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
@@ -35,6 +35,7 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isReceiving, setIsReceiving] = useState(false);
   const [uploadedFilePath, setUploadedFilePath] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -77,12 +78,22 @@ export default function Chat() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleNewChat = () => {
     if (isTyping) return;
-    if (!input.trim() && !uploadedFilePath) return;
+    setMessages([{ role: 'assistant', content: 'Hello! I am your AI HR Assistant. You can ask me about policies, employee data, or upload contracts for review.' }]);
+    setUploadedFilePath(null);
+    setUploadedFileName(null);
+    setInput('');
+  };
+
+  const handleSubmit = async (e, overrideInput = null) => {
+    if (e) e.preventDefault();
+    if (isTyping) return;
     
-    const currentInput = input || (uploadedFilePath ? 'Please analyze this document.' : '');
+    const textToSubmit = overrideInput !== null ? overrideInput : input;
+    if (!textToSubmit.trim() && !uploadedFilePath) return;
+    
+    const currentInput = textToSubmit || (uploadedFilePath ? 'Please analyze this document.' : '');
     setMessages(prev => [...prev, { 
       role: 'user', 
       content: currentInput,
@@ -92,12 +103,10 @@ export default function Chat() {
     
     setInput('');
     setIsTyping(true);
+    setIsReceiving(false);
     const pathToSend = uploadedFilePath;
     setUploadedFilePath(null); // clear for next message
     setUploadedFileName(null);
-
-    // Initialize assistant response
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
       const response = await fetch('http://localhost:8000/api/chat/stream', {
@@ -117,54 +126,80 @@ export default function Chat() {
         throw new Error('Network response was not ok');
       }
 
-      setIsTyping(false);
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
+      
+      let buffer = '';
+      let firstTokenReceived = false;
+      let isDone = false;
 
-      while (true) {
+      while (!isDone) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const dataStr = line.replace('data: ', '').trim();
-            if (dataStr === '[DONE]') break;
+            if (dataStr === '[DONE]') {
+              isDone = true;
+              break;
+            }
             
             try {
               const data = JSON.parse(dataStr);
               if (data.token) {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastIndex = newMessages.length - 1;
-                  newMessages[lastIndex] = {
-                    ...newMessages[lastIndex],
-                    content: newMessages[lastIndex].content + data.token
-                  };
-                  return newMessages;
-                });
+                if (!firstTokenReceived) {
+                  firstTokenReceived = true;
+                  setIsReceiving(true);
+                  setMessages(prev => [...prev, { role: 'assistant', content: data.token }]);
+                } else {
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastIndex = newMessages.length - 1;
+                    newMessages[lastIndex] = {
+                      ...newMessages[lastIndex],
+                      content: newMessages[lastIndex].content + data.token
+                    };
+                    return newMessages;
+                  });
+                }
               } else if (data.error) {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastIndex = newMessages.length - 1;
-                  newMessages[lastIndex] = {
-                    ...newMessages[lastIndex],
-                    content: newMessages[lastIndex].content + `\n\n[Error: ${data.error}]`
-                  };
-                  return newMessages;
-                });
+                if (!firstTokenReceived) {
+                  firstTokenReceived = true;
+                  setIsReceiving(true);
+                  setMessages(prev => [...prev, { role: 'assistant', content: `\n\n[Error: ${data.error}]` }]);
+                } else {
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastIndex = newMessages.length - 1;
+                    newMessages[lastIndex] = {
+                      ...newMessages[lastIndex],
+                      content: newMessages[lastIndex].content + `\n\n[Error: ${data.error}]`
+                    };
+                    return newMessages;
+                  });
+                }
               }
             } catch (err) {
-              console.error('Error parsing SSE JSON:', err);
+              console.error('Error parsing SSE JSON:', err, 'Data string:', dataStr);
             }
           }
         }
       }
+      
+      // Finished streaming
+      setIsTyping(false);
+      setIsReceiving(false);
+      
     } catch (error) {
       console.error('Fetch error:', error);
       setIsTyping(false);
+      setIsReceiving(false);
       setMessages(prev => {
         const newMessages = [...prev];
         const lastIndex = newMessages.length - 1;
@@ -190,24 +225,33 @@ export default function Chat() {
       <aside style={{ width: '280px', background: 'var(--bg-darker)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '16px' }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', fontSize: '1.25rem', fontWeight: '700', marginBottom: '24px' }}>
-          <Bot size={24} color="var(--primary)" />
-          <span>HrMind</span>
+          <div className={isTyping ? "bot-pulsate" : ""} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+            <Bot size={28} color="var(--primary)" />
+          </div>
+          <span style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HrMind</span>
         </div>
 
-        <button className="btn btn-outline" style={{ display: 'flex', justifyContent: 'flex-start', background: 'var(--bg-panel)', padding: '12px' }}>
+        <button onClick={handleNewChat} className="btn btn-outline" style={{ display: 'flex', justifyContent: 'flex-start', background: 'var(--bg-panel)', padding: '12px', width: '100%' }}>
           <PlusCircle size={18} /> New Chat
         </button>
 
         <div style={{ marginTop: '24px', flex: 1, overflowY: 'auto' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '12px', padding: '0 12px' }}>Recent Chats</div>
+          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '12px', padding: '0 12px' }}>Sample Questions</div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {['Leave Policies', 'Engineering Salary Data', 'Onboarding Process'].map((chat, i) => (
-              <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}
+            {[
+              "What is the company's employee expense policy?", 
+              "Which employee has the highest number of leaves in Engineering department?", 
+              "Top 3 Highest earning employees in Finance?",
+              "How many Data Scientists do we have?"
+            ].map((sample, i) => (
+              <div key={i} 
+                   onClick={(e) => handleSubmit(e, sample)}
+                   style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px', color: 'var(--text-muted)', fontSize: '0.875rem' }}
                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <History size={16} />
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat}</span>
+                <MessageSquare size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ lineHeight: '1.4' }}>{sample}</span>
               </div>
             ))}
           </div>
@@ -273,15 +317,18 @@ export default function Chat() {
             </div>
           ))}
           
-          {isTyping && (
+          {(isTyping && !isReceiving) && (
             <div style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
               <div className="bot-pulsate" style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--primary)', boxShadow: '0 0 10px var(--primary-glow)' }}>
                 <Bot size={20} color="var(--primary)" />
               </div>
-              <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span className="dot" style={{ animation: 'blink 1.4s infinite both' }}>•</span>
-                <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.2s' }}>•</span>
-                <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.4s' }}>•</span>
+              <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                <span style={{ fontWeight: 500, background: 'linear-gradient(90deg, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'pulse-text 2s infinite' }}>Thinking</span>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '100%' }}>
+                  <span className="dot" style={{ animation: 'blink 1.4s infinite both', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                  <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.2s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                  <span className="dot" style={{ animation: 'blink 1.4s infinite both 0.4s', background: 'var(--primary)', width: '4px', height: '4px', borderRadius: '50%' }}></span>
+                </div>
               </div>
             </div>
           )}
@@ -351,6 +398,10 @@ export default function Chat() {
           0% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 5px var(--primary-glow); }
           50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 20px var(--primary-glow); }
           100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 5px var(--primary-glow); }
+        }
+        @keyframes pulse-text {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; text-shadow: 0 0 8px var(--primary-glow); }
         }
         .bot-pulsate {
           animation: bot-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
