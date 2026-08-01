@@ -2,6 +2,29 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, User, Send, Settings, History, PlusCircle, LogOut, Paperclip, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import React, { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{ color: 'red', padding: '20px' }}>
+        <h1>Frontend Crash!</h1>
+        <pre>{this.state.error?.toString()}</pre>
+        <pre>{this.state.error?.stack}</pre>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
 
 export default function Chat() {
   const { token, user, logout } = useAuth();
@@ -156,6 +179,7 @@ export default function Chat() {
   };
 
   return (
+    <ErrorBoundary>
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-dark)' }}>
       
       {/* Sidebar */}
@@ -223,15 +247,23 @@ export default function Chat() {
                             padding: m.role === 'user' ? '12px 16px' : '8px 0',
                             borderRadius: '16px', borderTopRightRadius: m.role === 'user' ? 0 : '16px',
                             borderTopLeftRadius: m.role === 'assistant' ? 0 : '16px',
-                            color: 'var(--text-main)', fontSize: '1rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                {m.content}
+                            color: 'var(--text-main)', fontSize: '1rem', lineHeight: '1.6' }}>
+                {m.role === 'assistant' ? (
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                )}
               </div>
             </div>
           ))}
           
           {isTyping && (
             <div style={{ display: 'flex', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--border)' }}>
+              <div className="bot-pulsate" style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', border: '1px solid var(--primary)', boxShadow: '0 0 10px var(--primary-glow)' }}>
                 <Bot size={20} color="var(--primary)" />
               </div>
               <div style={{ padding: '8px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -303,7 +335,33 @@ export default function Chat() {
           20% { opacity: 1; }
           100% { opacity: 0.2; }
         }
+        @keyframes bot-pulse {
+          0% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 5px var(--primary-glow); }
+          50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 20px var(--primary-glow); }
+          100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 5px var(--primary-glow); }
+        }
+        .bot-pulsate {
+          animation: bot-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        
+        .markdown-body {
+          font-family: inherit;
+        }
+        .markdown-body p { margin-bottom: 1em; }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body ul, .markdown-body ol { margin-left: 1.5em; margin-bottom: 1em; }
+        .markdown-body li { margin-bottom: 0.5em; }
+        .markdown-body code { background: rgba(255,255,255,0.1); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; font-family: monospace; white-space: pre-wrap; word-break: break-word; }
+        .markdown-body pre { background: rgba(0,0,0,0.3); padding: 1em; border-radius: 8px; overflow-x: hidden; margin-bottom: 1em; white-space: pre-wrap; word-break: break-word; }
+        .markdown-body pre code { background: transparent; padding: 0; white-space: pre-wrap; }
+        .markdown-body strong { color: white; font-weight: 600; }
+        .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
+        .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+        .markdown-body th { background: rgba(255,255,255,0.05); color: white; font-weight: 600; }
+        .markdown-body a { color: var(--primary); text-decoration: none; }
+        .markdown-body a:hover { text-decoration: underline; }
       `}} />
     </div>
+    </ErrorBoundary>
   );
 }
